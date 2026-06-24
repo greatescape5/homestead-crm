@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
 const CONFIG = {
@@ -29,6 +29,10 @@ const STATUS_CFG = {
 
 const fmt$ = (n) => n ? "$" + Number(n).toLocaleString() : "—";
 const todayStr = () => new Date().toISOString().split("T")[0];
+const fmtTime = (ts) => {
+  const d = new Date(ts);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+};
 const EMPTY = { company: "", contact: "", phone: "", job_site: "", type: "", bid: "", status: "Lead", crew: "", notes: "", follow_up: "" };
 
 function Badge({ status }) {
@@ -65,7 +69,7 @@ function BottomNav({ tab, setTab }) {
   const tabs = [
     { id: "dashboard", icon: "⊞", label: "Dashboard" },
     { id: "jobs",      icon: "🔨", label: "Jobs" },
-    { id: "add",       icon: "+", label: "", special: true },
+    { id: "add",       icon: "+",  label: "", special: true },
     { id: "followups", icon: "📅", label: "Follow-ups" },
   ];
   return (
@@ -88,6 +92,80 @@ function BottomNav({ tab, setTab }) {
   );
 }
 
+// ─── QUICK ADD MODAL ──────────────────────────────────────────────────────────
+function QuickAdd({ onSave, onClose, userId }) {
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [reminder, setReminder] = useState("today");
+
+  const importContact = async () => {
+    try {
+      if (!("contacts" in navigator && "ContactsManager" in window)) {
+        alert("Contact import isn't supported on this browser. Try Safari on iPhone.");
+        return;
+      }
+      const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
+      if (contacts.length > 0) {
+        setName(contacts[0].name?.[0] || "");
+        setPhone(contacts[0].tel?.[0] || "");
+      }
+    } catch (e) {
+      alert("Couldn't access contacts. Make sure you allow access when prompted.");
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name) { alert("Name is required"); return; }
+    const follow_up = reminder === "today" ? todayStr() : new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    const { data, error } = await supabase.from("jobs").insert([{
+      company: name, contact: name, phone, status: "Lead",
+      notes: "", follow_up, user_id: userId,
+      job_site: "", type: "", bid: 0, crew: ""
+    }]).select().single();
+    if (!error) { onSave(data); onClose(); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "#000000AA", zIndex: 200, display: "flex", alignItems: "flex-end" }}>
+      <div style={{ background: T.card, borderRadius: "20px 20px 0 0", padding: 24, width: "100%", maxWidth: 480, margin: "0 auto", paddingBottom: 40 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, color: T.steel, marginBottom: 6 }}>Quick Add</div>
+        <div style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>Capture a call-back in seconds.</div>
+
+        <button onClick={importContact} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 16 }}>
+          📋 Import from Contacts
+        </button>
+
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Name / Company</div>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Mike Hendricks" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Phone</div>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="208-555-0100" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Remind Me</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {["today", "tomorrow", "next week"].map(r => (
+              <button key={r} onClick={() => setReminder(r)} style={{ flex: 1, padding: "10px 6px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: reminder === r ? T.gold : T.bg, color: reminder === r ? T.steel : T.muted }}>
+                {r.charAt(0).toUpperCase() + r.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button onClick={handleSave} style={{ flex: 2, background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 14, fontWeight: 900, fontSize: 16, cursor: "pointer" }}>Save Call-Back</button>
+          <button onClick={onClose} style={{ flex: 1, background: T.bg, color: T.muted, border: "1px solid " + T.cardBorder, borderRadius: 12, padding: 14, fontWeight: 700, fontSize: 16, cursor: "pointer" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LOGIN ────────────────────────────────────────────────────────────────────
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -141,7 +219,8 @@ function Login() {
   );
 }
 
-function Dashboard({ jobs, onJobSelect, onSignOut }) {
+// ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
   const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
@@ -154,14 +233,27 @@ function Dashboard({ jobs, onJobSelect, onSignOut }) {
 
   return (
     <div style={{ paddingBottom: 90 }}>
-      <Header title="Dashboard" right={<button onClick={onSignOut} style={{ background: "none", border: "1px solid #444", borderRadius: 8, color: T.mutedLight, fontSize: 11, padding: "5px 10px", cursor: "pointer", fontWeight: 600 }}>Sign Out</button>} />
+      <div style={{ background: T.steel, padding: "18px 18px 14px", borderBottom: "3px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{CONFIG.companyName} · {CONFIG.companySubtitle}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: T.white, marginTop: 2 }}>Dashboard</div>
+        </div>
+        <button onClick={onSignOut} style={{ background: "none", border: "1px solid #444", borderRadius: 8, color: T.mutedLight, fontSize: 11, padding: "5px 10px", cursor: "pointer", fontWeight: 600 }}>Sign Out</button>
+      </div>
+
       {(overdue > 0 || dueToday > 0) && (
         <div style={{ background: "#3A1A10", borderBottom: "2px solid " + T.gold, padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 }}>
           <span>🔔</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#F5D8A0" }}>{overdue > 0 && overdue + " overdue"}{overdue > 0 && dueToday > 0 && " · "}{dueToday > 0 && dueToday + " due today"}</span>
         </div>
       )}
+
       <div style={{ padding: "16px 16px 0" }}>
+        {/* Quick Add Button */}
+        <button onClick={onQuickAdd} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 15, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          📞 Quick Add Call-Back
+        </button>
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
           {[
             { label: "Active Jobs", value: active, color: T.success },
@@ -175,6 +267,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut }) {
             </div>
           ))}
         </div>
+
         <div style={{ background: T.steel, borderRadius: 14, padding: 18, marginBottom: 14, border: "3px solid " + T.gold }}>
           <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Revenue Overview</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -200,6 +293,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut }) {
             ))}
           </div>
         </div>
+
         {callBacks.length > 0 && (
           <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
             <div style={{ background: "#2A1A08", padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
@@ -216,6 +310,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut }) {
             ))}
           </div>
         )}
+
         {jobs.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.muted }}>
             <div style={{ fontSize: 36 }}>🔨</div>
@@ -279,10 +374,26 @@ function JobList({ jobs, onSelect }) {
   );
 }
 
-function JobDetail({ job, onBack, onSave, onDelete }) {
+// ─── JOB DETAIL WITH NOTES HISTORY ───────────────────────────────────────────
+function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...job });
+  const [notes, setNotes] = useState([]);
+  const [newNote, setNewNote] = useState("");
+  const [loadingNotes, setLoadingNotes] = useState(true);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  useEffect(() => {
+    supabase.from("job_notes").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
+      .then(({ data }) => { setNotes(data || []); setLoadingNotes(false); });
+  }, [job.id]);
+
+  const addNote = async () => {
+    if (!newNote.trim()) return;
+    const { data, error } = await supabase.from("job_notes").insert([{ job_id: job.id, user_id: userId, note: newNote.trim() }]).select().single();
+    if (!error) { setNotes(n => [data, ...n]); setNewNote(""); }
+  };
+
   const handleSave = () => { onSave(form); setEditing(false); };
 
   const Row = ({ label, k, type, opts }) => (
@@ -307,12 +418,13 @@ function JobDetail({ job, onBack, onSave, onDelete }) {
   );
 
   return (
-    <div style={{ paddingBottom: 90 }}>
+    <div style={{ paddingBottom: 40 }}>
       <div style={{ background: T.steel, padding: "14px 16px 16px", borderBottom: "3px solid " + T.gold }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Back</button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>{job.company}</div>
         <div style={{ marginTop: 6 }}><Badge status={form.status} /></div>
       </div>
+
       <div style={{ padding: "16px 16px 0" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
           {!editing
@@ -325,6 +437,7 @@ function JobDetail({ job, onBack, onSave, onDelete }) {
           <a href={"tel:" + job.phone} style={{ background: T.gold, color: T.steel, borderRadius: 10, padding: "12px 16px", fontWeight: 900, fontSize: 20, textDecoration: "none", display: "flex", alignItems: "center" }}>📞</a>
           <a href={"sms:" + job.phone} style={{ background: T.steelMid, color: T.white, borderRadius: 10, padding: "12px 16px", fontWeight: 900, fontSize: 20, textDecoration: "none", display: "flex", alignItems: "center" }}>💬</a>
         </div>
+
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 16px 2px", border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
           <Row label="Company"    k="company" />
           <Row label="Contact"    k="contact" />
@@ -335,9 +448,36 @@ function JobDetail({ job, onBack, onSave, onDelete }) {
           <Row label="Status"     k="status" opts={CONFIG.statuses} />
           <Row label="Crew"       k="crew" opts={["", ...CONFIG.crews]} />
           <Row label="Follow-up"  k="follow_up" type="date" />
-          <Row label="Notes"      k="notes" type="textarea" />
         </div>
-        <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>
+
+        {/* Notes History */}
+        <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
+          <div style={{ background: T.steel, padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase" }}>📝 Notes History</div>
+          </div>
+
+          <div style={{ padding: 14 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note…"
+                onKeyDown={e => e.key === "Enter" && addNote()}
+                style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, outline: "none" }} />
+              <button onClick={addNote} style={{ background: T.gold, color: T.steel, border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>Add</button>
+            </div>
+
+            {loadingNotes ? (
+              <div style={{ textAlign: "center", padding: 20, color: T.mutedLight, fontSize: 13 }}>Loading…</div>
+            ) : notes.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 20, color: T.mutedLight, fontSize: 13 }}>No notes yet — add your first one above.</div>
+            ) : notes.map(n => (
+              <div key={n.id} style={{ borderBottom: "1px solid " + T.cardBorder, paddingBottom: 12, marginBottom: 12 }}>
+                <div style={{ fontSize: 14, color: T.steel, lineHeight: 1.5 }}>{n.note}</div>
+                <div style={{ fontSize: 11, color: T.mutedLight, marginTop: 4 }}>{fmtTime(n.created_at)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, marginBottom: 40 }}>
           Delete Job
         </button>
       </div>
@@ -345,9 +485,26 @@ function JobDetail({ job, onBack, onSave, onDelete }) {
   );
 }
 
-function AddJob({ onSave, onCancel }) {
+function AddJob({ onSave, onCancel, userId }) {
   const [form, setForm] = useState({ ...EMPTY });
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const importContact = async () => {
+    try {
+      if (!("contacts" in navigator && "ContactsManager" in window)) {
+        alert("Contact import isn't supported on this browser. Try Safari on iPhone.");
+        return;
+      }
+      const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
+      if (contacts.length > 0) {
+        set("contact", contacts[0].name?.[0] || "");
+        set("company", contacts[0].name?.[0] || "");
+        set("phone", contacts[0].tel?.[0] || "");
+      }
+    } catch (e) {
+      alert("Couldn't access contacts.");
+    }
+  };
 
   const Inp = ({ label, k, type, opts, placeholder }) => (
     <div style={{ marginBottom: 14 }}>
@@ -365,14 +522,17 @@ function AddJob({ onSave, onCancel }) {
   );
 
   return (
-    <div style={{ paddingBottom: 90 }}>
+    <div style={{ paddingBottom: 90, minHeight: "100vh" }}>
       <Header title={"New " + CONFIG.jobLabel} sub="Fill in what you know — edit anytime." />
-      <div style={{ padding: "16px 16px 0" }}>
+      <div style={{ padding: "16px 16px 0", maxWidth: 420, margin: "0 auto" }}>
+        <button onClick={importContact} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 16 }}>
+          📋 Import from Contacts
+        </button>
         <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
           <Inp label="Company Name *" k="company" placeholder="Ridgeline Builders" />
           <Inp label="Contact Name"   k="contact" placeholder="Mike Hendricks" />
           <Inp label="Phone"          k="phone" type="tel" placeholder="208-555-0100" />
-          <Inp label="Job Site"       k="job_site" placeholder="1234 Timber Ridge Rd, Sandpoint" />
+          <Inp label="Job Site"       k="job_site" placeholder="1234 Timber Ridge Rd" />
           <Inp label="Job Type"       k="type" opts={["", ...CONFIG.jobTypes]} />
           <Inp label="Bid Amount"     k="bid" type="number" placeholder="0" />
           <Inp label="Status"         k="status" opts={CONFIG.statuses} />
@@ -443,6 +603,7 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800); };
 
@@ -462,6 +623,8 @@ export default function App() {
     if (error) { showToast("Error saving job", "error"); return; }
     setJobs(js => [data, ...js]); setTab("jobs"); showToast(data.company + " added");
   };
+
+  const handleQuickAdd = (job) => { setJobs(js => [job, ...js]); showToast(job.company + " added to call-backs"); };
 
   const handleSave = async (updated) => {
     const { error } = await supabase.from("jobs").update(updated).eq("id", updated.id);
@@ -485,13 +648,14 @@ export default function App() {
   return (
     <div style={root}>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
+      {showQuickAdd && <QuickAdd onSave={handleQuickAdd} onClose={() => setShowQuickAdd(false)} userId={session.user.id} />}
       {selected ? (
-        <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} />
+        <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} userId={session.user.id} />
       ) : (
         <>
-          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} />}
+          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} onQuickAdd={() => setShowQuickAdd(true)} />}
           {tab === "jobs"      && <JobList jobs={jobs} onSelect={setSelected} />}
-          {tab === "add"       && <AddJob onSave={handleAdd} onCancel={() => setTab("jobs")} />}
+          {tab === "add"       && <AddJob onSave={handleAdd} onCancel={() => setTab("jobs")} userId={session.user.id} />}
           {tab === "followups" && <FollowUps jobs={jobs} onSelect={setSelected} />}
         </>
       )}
