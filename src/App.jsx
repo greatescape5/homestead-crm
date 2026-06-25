@@ -271,7 +271,6 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
       });
     }
   };
-  const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
   const nonClosed = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
