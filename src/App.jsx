@@ -250,39 +250,6 @@ function Login() {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
   const today = todayStr();
-  const [notifStatus, setNotifStatus] = useState("unknown");
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        if (!window.OneSignalDeferred) return;
-        window.OneSignalDeferred.push(async (OneSignal) => {
-          // Tag this user with their Supabase ID for targeted notifications
-          await OneSignal.User.addTag('user_id', userId);
-          const permission = await OneSignal.Notifications.permission;
-          setNotifStatus(permission ? "on" : "off");
-        });
-      } catch (e) { console.log('OneSignal not ready', e); }
-    };
-    setTimeout(init, 2000);
-  }, [userId]);
-
-  const enableNotifications = () => {
-    try {
-      if (window.OneSignal) {
-        window.OneSignal.Notifications.requestPermission().then(() => {
-          window.OneSignal.User.addTag('user_id', userId);
-          setNotifStatus("on");
-        });
-      } else if (window.OneSignalDeferred) {
-        window.OneSignalDeferred.push(async (OneSignal) => {
-          await OneSignal.Notifications.requestPermission();
-          await OneSignal.User.addTag('user_id', userId);
-          setNotifStatus("on");
-        });
-      }
-    } catch (e) { console.log('Notification error', e); }
-  };
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
   const nonClosed = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
@@ -307,21 +274,6 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
         <div style={{ background: "#3A1A10", borderBottom: "2px solid " + T.gold, padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 }}>
           <span>🔔</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#F5D8A0" }}>{overdue > 0 && overdue + " overdue"}{overdue > 0 && dueToday > 0 && " · "}{dueToday > 0 && dueToday + " due today"}</span>
-        </div>
-      )}
-
-      {notifStatus === "off" && (
-        <div style={{ background: "#1A2A1A", borderBottom: "1px solid #3A8A56", padding: "10px 18px" }}>
-          {/iPhone|iPad/.test(navigator.userAgent) && window.navigator.standalone ? (
-            <div style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>
-              🔕 To enable notifications: open Safari → go to homestead.trackdcrm.com → tap Share → Add to Home Screen
-            </div>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>🔕 Enable push notifications for follow-up reminders</span>
-              <button onClick={enableNotifications} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", marginLeft: 8 }}>Turn On</button>
-            </div>
-          )}
         </div>
       )}
 
@@ -725,6 +677,12 @@ export default function App() {
   useEffect(() => {
     if (!session) return;
     supabase.from("jobs").select("*").order("created_at", { ascending: false }).then(({ data, error }) => { if (!error) setJobs(data || []); });
+    // Tag user in OneSignal for targeted notifications
+    if (window.OneSignalDeferred) {
+      window.OneSignalDeferred.push(async (OneSignal) => {
+        try { await OneSignal.User.addTag('user_id', session.user.id); } catch(e) {}
+      });
+    }
   }, [session]);
 
   const handleAdd = async (form) => {
