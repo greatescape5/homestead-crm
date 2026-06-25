@@ -268,16 +268,20 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
   }, [userId]);
 
   const enableNotifications = () => {
-    if (window.OneSignalDeferred) {
-      window.OneSignalDeferred.push(async (OneSignal) => {
-        try {
+    try {
+      if (window.OneSignal) {
+        window.OneSignal.Notifications.requestPermission().then(() => {
+          window.OneSignal.User.addTag('user_id', userId);
+          setNotifStatus("on");
+        });
+      } else if (window.OneSignalDeferred) {
+        window.OneSignalDeferred.push(async (OneSignal) => {
           await OneSignal.Notifications.requestPermission();
           await OneSignal.User.addTag('user_id', userId);
-          const permission = await OneSignal.Notifications.permission;
-          setNotifStatus(permission ? "on" : "off");
-        } catch (e) { console.log('Notification error', e); }
-      });
-    }
+          setNotifStatus("on");
+        });
+      }
+    } catch (e) { console.log('Notification error', e); }
   };
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
