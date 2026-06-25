@@ -447,7 +447,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           {!editing
             ? <button onClick={() => setEditing(true)} style={{ flex: 1, background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>Edit Job</button>
             : <>
-                <button onClick={handleSave} style={{ flex: 2, background: T.gold, color: T.steel, border: "none", borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>Save Changes</button>
+                <button onClick={handleSave} style={{ flex: 2, background: T.success, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>Save Changes</button>
                 <button onClick={() => { setForm({ ...job }); setEditing(false); }} style={{ flex: 1, background: T.bg, color: T.muted, border: "1px solid " + T.cardBorder, borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Cancel</button>
               </>
           }
@@ -545,6 +545,11 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           </div>
         </div>
 
+        {editing && (
+          <button onClick={handleSave} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10 }}>
+            Save Changes
+          </button>
+        )}
         <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, marginBottom: 40 }}>
           Delete Job
         </button>
