@@ -1,6 +1,60 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import App from './App';
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Homestead CRM" />
+    <meta name="theme-color" content="#1A1A1A" />
+    <title>Homestead CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<React.StrictMode><App /></React.StrictMode>);
+    <!-- OneSignal Push Notifications -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "f4317bd8-66ea-4490-8352-4a313ca68f03",
+          notifyButton: { enable: false },
+          allowLocalhostAsSecureOrigin: true,
+          serviceWorkerParam: { scope: "/" },
+          serviceWorkerPath: "OneSignalSDKWorker.js",
+        });
+      });
+    </script>
+
+    <style>
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
+      html, body {
+        height: 100%;
+        background: #1A1A1A;
+        overscroll-behavior: none;
+      }
+
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+
+      #root {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      @supports (-webkit-touch-callout: none) {
+        body {
+          height: -webkit-fill-available;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
