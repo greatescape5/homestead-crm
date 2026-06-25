@@ -460,7 +460,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             { label: "Company",    k: "company",   type: "text" },
             { label: "Contact",    k: "contact",   type: "text" },
             { label: "Phone",      k: "phone",     type: "tel" },
-            { label: "Job Site",   k: "job_site",  type: "text", autoComplete: "off" },
+            { label: "Job Site Address", k: "job_site",  type: "text", autoComplete: "off" },
             { label: "Bid Amount", k: "bid",       type: "number" },
           ].map(({ label, k, type, autoComplete }) => (
             <div key={k} style={rowDiv}>
@@ -575,7 +575,7 @@ function AddJob({ onSave, onCancel, userId }) {
           <div style={fldStyle}><label style={lblStyle}>Company Name *</label><input style={inpStyle} value={form.company} onChange={set("company")} placeholder="Ridgeline Builders" /></div>
           <div style={fldStyle}><label style={lblStyle}>Contact Name</label><input style={inpStyle} value={form.contact} onChange={set("contact")} placeholder="Mike Hendricks" /></div>
           <div style={fldStyle}><label style={lblStyle}>Phone — iOS suggests from contacts</label><input style={inpStyle} type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="208-555-0100" /></div>
-          <div style={fldStyle}><label style={lblStyle}>Job Site</label><input style={inpStyle} value={form.job_site} onChange={set("job_site")} placeholder="1234 Timber Ridge Rd" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Job Site Address</label><input style={inpStyle} value={form.job_site} onChange={set("job_site")} autoComplete="off" placeholder="1234 Timber Ridge Rd" /></div>
           <div style={fldStyle}><label style={lblStyle}>Job Type</label>
             <select style={selStyle} value={form.type} onChange={set("type")}>
               {["", ...CONFIG.jobTypes].map(o => <option key={o} value={o}>{o || "—"}</option>)}
