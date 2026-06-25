@@ -54,7 +54,7 @@ function Toast({ msg, type }) {
 
 function Header({ title, sub, right }) {
   return (
-    <div style={{ background: T.steel, padding: "18px 18px 14px", borderBottom: "3px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div style={{ background: T.steel, paddingLeft: 18, paddingRight: 18, paddingBottom: 14, paddingTop: "calc(18px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
       <div>
         <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{CONFIG.companyName} · {CONFIG.companySubtitle}</div>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white, marginTop: 2 }}>{title}</div>
@@ -74,33 +74,47 @@ function BottomNav({ tab, setTab }) {
     { id: "followups", icon: "📅", label: "Follow-ups" },
   ];
   return (
-    <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto", background: T.steel, borderTop: "3px solid " + T.gold, display: "flex", alignItems: "center", zIndex: 100, height: 64 }}>
+    <nav style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto",
+      background: T.steel, borderTop: "3px solid " + T.gold, zIndex: 100,
+      display: "flex", alignItems: "flex-start",
+      paddingBottom: "env(safe-area-inset-bottom)",
+      height: "calc(60px + env(safe-area-inset-bottom))",
+    }}>
       {sides.map(t => (
-        <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0, height: "100%", background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20 }}>
+        <button key={t.id} onClick={() => setTab(t.id)} style={{
+          flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
+          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20,
+        }}>
           <span style={{ lineHeight: 1 }}>{t.icon}</span>
           <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
         </button>
       ))}
 
-      {/* Center + button */}
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {/* Center + button — sits above the nav bar */}
+      <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6 }}>
         <button onClick={() => setTab("add")} style={{
-          width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer",
-          background: T.gold, color: T.steel, fontSize: 26, fontWeight: 900,
+          width: 44, height: 44, borderRadius: "50%", border: "none", cursor: "pointer",
+          background: T.gold, color: T.steel, fontSize: 24, fontWeight: 900,
           display: "flex", alignItems: "center", justifyContent: "center",
-          marginBottom: 8,
-          boxShadow: "0 2px 12px " + T.gold + "88",
+          marginTop: -22,
+          boxShadow: "0 2px 12px " + T.gold + "99",
         }}>+</button>
       </div>
 
       {right.map(t => (
-        <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0, height: "100%", background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20 }}>
+        <button key={t.id} onClick={() => setTab(t.id)} style={{
+          flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
+          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20,
+        }}>
           <span style={{ lineHeight: 1 }}>{t.icon}</span>
           <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
         </button>
       ))}
 
-      {/* Empty right balance */}
+      {/* Balance right side */}
       <div style={{ flex: 1 }} />
     </nav>
   );
@@ -233,7 +247,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
 
   return (
     <div style={{ paddingBottom: 90 }}>
-      <div style={{ background: T.steel, padding: "18px 18px 14px", borderBottom: "3px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ background: T.steel, paddingLeft: 18, paddingRight: 18, paddingBottom: 14, paddingTop: "calc(18px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{CONFIG.companyName} · {CONFIG.companySubtitle}</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: T.white, marginTop: 2 }}>Dashboard</div>
