@@ -455,14 +455,24 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             { label: "Phone",      k: "phone",     type: "tel" },
             { label: "Job Site",   k: "job_site",  type: "text" },
             { label: "Bid Amount", k: "bid",       type: "number" },
-            <div key="follow_up" style={rowDiv}>
+          ].map(({ label, k, type }) => (
+            <div key={k} style={rowDiv}>
+              <label style={rowLbl}>{label}</label>
+              {editing
+                ? <input type={type} value={form[k] || ""} onChange={setF(k)} style={{ ...inpStyle }} />
+                : <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>{k === "bid" ? fmt$(form[k]) : form[k] || "—"}</div>
+              }
+            </div>
+          ))}
+
+          <div style={rowDiv}>
             <label style={rowLbl}>Follow-up Date</label>
             {editing
               ? <input type="date" value={form.follow_up || ""} onChange={setF("follow_up")} style={{ ...inpStyle }} />
               : <div style={{ fontSize: 15, color: T.steel }}>{form.follow_up || "—"}</div>
             }
           </div>
-          <div key="follow_up_time" style={rowDiv}>
+          <div style={rowDiv}>
             <label style={rowLbl}>Follow-up Time <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— defaults to 8:00 AM</span></label>
             {editing
               ? <input type="time" value={form.follow_up_time || ""} onChange={setF("follow_up_time")} style={{ ...inpStyle }} />
