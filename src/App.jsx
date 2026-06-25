@@ -307,9 +307,17 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
       )}
 
       {notifStatus === "off" && (
-        <div style={{ background: "#1A2A1A", borderBottom: "1px solid #3A8A56", padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>🔕 Enable push notifications for follow-up reminders</span>
-          <button onClick={enableNotifications} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", marginLeft: 8 }}>Turn On</button>
+        <div style={{ background: "#1A2A1A", borderBottom: "1px solid #3A8A56", padding: "10px 18px" }}>
+          {/iPhone|iPad/.test(navigator.userAgent) && window.navigator.standalone ? (
+            <div style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>
+              🔕 To enable notifications: open Safari → go to homestead.trackdcrm.com → tap Share → Add to Home Screen
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>🔕 Enable push notifications for follow-up reminders</span>
+              <button onClick={enableNotifications} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", marginLeft: 8 }}>Turn On</button>
+            </div>
+          )}
         </div>
       )}
 
