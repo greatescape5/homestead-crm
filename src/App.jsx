@@ -33,7 +33,17 @@ const fmtTime = (ts) => {
   const d = new Date(ts);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
-const EMPTY = { company: "", contact: "", phone: "", job_site: "", type: "", bid: "", status: "Lead", crew: "", notes: "", follow_up: "" };
+const EMPTY = { company: "", contact: "", phone: "", job_site: "", type: "", bid: "", status: "Lead", crew: "", notes: "", follow_up: "", follow_up_time: "" };
+
+const fmtFollowUp = (date, time) => {
+  if (!date) return null;
+  const t = time || "08:00";
+  const [h, m] = t.split(":");
+  const hour = parseInt(h);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 || 12;
+  return `${date} at ${h12}:${m} ${ampm}`;
+};
 
 function Badge({ status }) {
   const c = STATUS_CFG[status] || STATUS_CFG.Lead;
@@ -125,19 +135,16 @@ function QuickAdd({ onSave, onClose, userId }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [reminder, setReminder] = useState("today");
-
-  const importContact = () => {
-    // Open phone dialer/contacts — user copies the number back
-    // Best available method for PWA on iOS home screen
-    window.location.href = "tel:";
-  };
+  const [time, setTime] = useState("");
 
   const handleSave = async () => {
     if (!name) { alert("Name is required"); return; }
-    const follow_up = reminder === "today" ? todayStr() : new Date(Date.now() + 86400000).toISOString().split("T")[0];
+    const follow_up = reminder === "today" ? todayStr()
+      : reminder === "tomorrow" ? new Date(Date.now() + 86400000).toISOString().split("T")[0]
+      : new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
     const { data, error } = await supabase.from("jobs").insert([{
       company: name, contact: name, phone, status: "Lead",
-      notes: "", follow_up, user_id: userId,
+      notes: "", follow_up, follow_up_time: time || "08:00", user_id: userId,
       job_site: "", type: "", bid: 0, crew: ""
     }]).select().single();
     if (!error) { onSave(data); onClose(); }
@@ -154,12 +161,12 @@ function QuickAdd({ onSave, onClose, userId }) {
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Mike Hendricks" autoComplete="name" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Phone <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— iOS will suggest from your contacts</span></div>
           <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="208-555-0100" autoComplete="tel" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
         </div>
 
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Remind Me</div>
           <div style={{ display: "flex", gap: 8 }}>
             {["today", "tomorrow", "next week"].map(r => (
@@ -168,6 +175,13 @@ function QuickAdd({ onSave, onClose, userId }) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>
+            Notification Time <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— defaults to 8:00 AM</span>
+          </div>
+          <input type="time" value={time} onChange={e => setTime(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
         </div>
 
         <div style={{ display: "flex", gap: 10 }}>
@@ -441,16 +455,20 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             { label: "Phone",      k: "phone",     type: "tel" },
             { label: "Job Site",   k: "job_site",  type: "text" },
             { label: "Bid Amount", k: "bid",       type: "number" },
-            { label: "Follow-up",  k: "follow_up", type: "date" },
-          ].map(({ label, k, type }) => (
-            <div key={k} style={rowDiv}>
-              <label style={rowLbl}>{label}</label>
-              {editing
-                ? <input type={type} value={form[k] || ""} onChange={setF(k)} style={{ ...inpStyle }} />
-                : <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>{k === "bid" ? fmt$(form[k]) : form[k] || "—"}</div>
-              }
-            </div>
-          ))}
+            <div key="follow_up" style={rowDiv}>
+            <label style={rowLbl}>Follow-up Date</label>
+            {editing
+              ? <input type="date" value={form.follow_up || ""} onChange={setF("follow_up")} style={{ ...inpStyle }} />
+              : <div style={{ fontSize: 15, color: T.steel }}>{form.follow_up || "—"}</div>
+            }
+          </div>
+          <div key="follow_up_time" style={rowDiv}>
+            <label style={rowLbl}>Follow-up Time <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— defaults to 8:00 AM</span></label>
+            {editing
+              ? <input type="time" value={form.follow_up_time || ""} onChange={setF("follow_up_time")} style={{ ...inpStyle }} />
+              : <div style={{ fontSize: 15, color: T.steel }}>{form.follow_up_time ? (() => { const [h,m] = form.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })() : "8:00 AM (default)"}</div>
+            }
+          </div>
 
           {/* Job Type select */}
           <div style={rowDiv}>
@@ -550,6 +568,10 @@ function AddJob({ onSave, onCancel, userId }) {
             </select>
           </div>
           <div style={fldStyle}><label style={lblStyle}>Follow-up Date</label><input style={inpStyle} type="date" value={form.follow_up} onChange={set("follow_up")} /></div>
+          <div style={fldStyle}>
+            <label style={lblStyle}>Follow-up Time <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— defaults to 8:00 AM</span></label>
+            <input style={inpStyle} type="time" value={form.follow_up_time} onChange={set("follow_up_time")} />
+          </div>
           <div style={fldStyle}><label style={lblStyle}>Notes</label><textarea style={{ ...inpStyle, resize: "vertical" }} rows={3} value={form.notes} onChange={set("notes")} placeholder="Any details…" /></div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
@@ -583,6 +605,7 @@ function FollowUps({ jobs, onSelect }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color }}>{j.follow_up}</div>
+            <div style={{ fontSize: 11, color: T.mutedLight }}>🕐 {j.follow_up_time ? (() => { const [h,m] = j.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })() : "8:00 AM"}</div>
             <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 7, padding: "5px 10px", fontWeight: 800, fontSize: 12, textDecoration: "none" }}>📞</a>
           </div>
         </div>
