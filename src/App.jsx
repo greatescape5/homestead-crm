@@ -395,7 +395,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(true);
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
     supabase.from("job_notes").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
@@ -410,30 +410,12 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
 
   const handleSave = () => { onSave(form); setEditing(false); };
 
-  const Row = ({ label, k, type, opts }) => (
-    <div style={{ paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid " + T.cardBorder }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>{label}</div>
-      {editing ? (
-        opts ? (
-          <select value={form[k] || ""} onChange={e => set(k, e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.bg, boxSizing: "border-box" }}>
-            {opts.map(o => <option key={o} value={o}>{o || "—"}</option>)}
-          </select>
-        ) : type === "textarea" ? (
-          <textarea value={form[k] || ""} onChange={e => set(k, e.target.value)} rows={3} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
-        ) : (
-          <input type={type || "text"} value={form[k] || ""} onChange={e => set(k, e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, boxSizing: "border-box" }} />
-        )
-      ) : (
-        <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>
-          {k === "bid" ? fmt$(form[k]) : form[k] || "—"}
-        </div>
-      )}
-    </div>
-  );
+  const rowDiv = { paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid " + T.cardBorder };
+  const rowLbl = { fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, display: "block" };
 
   return (
     <div style={{ paddingBottom: 40 }}>
-      <div style={{ background: T.steel, padding: "14px 16px 16px", borderBottom: "3px solid " + T.gold }}>
+      <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
         <button onClick={onBack} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Back</button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>{job.company}</div>
         <div style={{ marginTop: 6 }}><Badge status={form.status} /></div>
@@ -453,15 +435,49 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
         </div>
 
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 16px 2px", border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
-          <Row label="Company"    k="company" />
-          <Row label="Contact"    k="contact" />
-          <Row label="Phone"      k="phone" type="tel" />
-          <Row label="Job Site"   k="job_site" />
-          <Row label="Job Type"   k="type" opts={CONFIG.jobTypes} />
-          <Row label="Bid Amount" k="bid" type="number" />
-          <Row label="Status"     k="status" opts={CONFIG.statuses} />
-          <Row label="Crew"       k="crew" opts={["", ...CONFIG.crews]} />
-          <Row label="Follow-up"  k="follow_up" type="date" />
+          {[
+            { label: "Company",    k: "company",   type: "text" },
+            { label: "Contact",    k: "contact",   type: "text" },
+            { label: "Phone",      k: "phone",     type: "tel" },
+            { label: "Job Site",   k: "job_site",  type: "text" },
+            { label: "Bid Amount", k: "bid",       type: "number" },
+            { label: "Follow-up",  k: "follow_up", type: "date" },
+          ].map(({ label, k, type }) => (
+            <div key={k} style={rowDiv}>
+              <label style={rowLbl}>{label}</label>
+              {editing
+                ? <input type={type} value={form[k] || ""} onChange={setF(k)} style={{ ...inpStyle }} />
+                : <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>{k === "bid" ? fmt$(form[k]) : form[k] || "—"}</div>
+              }
+            </div>
+          ))}
+
+          {/* Job Type select */}
+          <div style={rowDiv}>
+            <label style={rowLbl}>Job Type</label>
+            {editing
+              ? <select value={form.type || ""} onChange={setF("type")} style={selStyle}>{CONFIG.jobTypes.map(o => <option key={o} value={o}>{o}</option>)}</select>
+              : <div style={{ fontSize: 15, color: T.steel }}>{form.type || "—"}</div>
+            }
+          </div>
+
+          {/* Status select */}
+          <div style={rowDiv}>
+            <label style={rowLbl}>Status</label>
+            {editing
+              ? <select value={form.status || ""} onChange={setF("status")} style={selStyle}>{CONFIG.statuses.map(o => <option key={o} value={o}>{o}</option>)}</select>
+              : <div style={{ fontSize: 15, color: T.steel }}>{form.status || "—"}</div>
+            }
+          </div>
+
+          {/* Crew select */}
+          <div style={rowDiv}>
+            <label style={rowLbl}>Crew</label>
+            {editing
+              ? <select value={form.crew || ""} onChange={setF("crew")} style={selStyle}>{["", ...CONFIG.crews].map(o => <option key={o} value={o}>{o || "—"}</option>)}</select>
+              : <div style={{ fontSize: 15, color: T.steel }}>{form.crew || "—"}</div>
+            }
+          </div>
         </div>
 
         {/* Notes History */}
@@ -499,60 +515,42 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   );
 }
 
+const inpStyle = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fff" };
+const selStyle = { width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.bg, boxSizing: "border-box" };
+const lblStyle = { fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, display: "block" };
+const fldStyle = { marginBottom: 14 };
+
 function AddJob({ onSave, onCancel, userId }) {
   const [form, setForm] = useState({ ...EMPTY });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const importContact = async () => {
-    try {
-      if ("contacts" in navigator && "ContactsManager" in window) {
-        const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
-        if (contacts.length > 0) {
-          set("contact", contacts[0].name?.[0] || "");
-          set("company", contacts[0].name?.[0] || "");
-          set("phone", contacts[0].tel?.[0] || "");
-        }
-      } else {
-        alert("Tap the phone field — iOS will suggest contacts automatically.");
-      }
-    } catch (e) {
-      alert("Tap the phone field — iOS will suggest contacts automatically.");
-    }
-  };
-
-  const Inp = ({ label, k, type, opts, placeholder }) => (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>{label}</div>
-      {opts ? (
-        <select value={form[k] || ""} onChange={e => set(k, e.target.value)} style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.bg, boxSizing: "border-box" }}>
-          {opts.map(o => <option key={o} value={o}>{o || "—"}</option>)}
-        </select>
-      ) : type === "textarea" ? (
-        <textarea value={form[k] || ""} onChange={e => set(k, e.target.value)} placeholder={placeholder} rows={3} style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, resize: "vertical", boxSizing: "border-box" }} />
-      ) : (
-        <input type={type || "text"} value={form[k] || ""} onChange={e => set(k, e.target.value)} placeholder={placeholder} style={{ width: "100%", padding: "11px 12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, boxSizing: "border-box" }} />
-      )}
-    </div>
-  );
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   return (
     <div style={{ paddingBottom: 90, minHeight: "100vh" }}>
       <Header title={"New " + CONFIG.jobLabel} sub="Fill in what you know — edit anytime." />
       <div style={{ padding: "16px 16px 0", maxWidth: 420, margin: "0 auto" }}>
-        <button onClick={importContact} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 16 }}>
-          📋 Import from Contacts
-        </button>
         <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
-          <Inp label="Company Name *" k="company" placeholder="Ridgeline Builders" />
-          <Inp label="Contact Name"   k="contact" placeholder="Mike Hendricks" />
-          <Inp label="Phone"          k="phone" type="tel" placeholder="208-555-0100" />
-          <Inp label="Job Site"       k="job_site" placeholder="1234 Timber Ridge Rd" />
-          <Inp label="Job Type"       k="type" opts={["", ...CONFIG.jobTypes]} />
-          <Inp label="Bid Amount"     k="bid" type="number" placeholder="0" />
-          <Inp label="Status"         k="status" opts={CONFIG.statuses} />
-          <Inp label="Crew"           k="crew" opts={["", ...CONFIG.crews]} />
-          <Inp label="Follow-up Date" k="follow_up" type="date" />
-          <Inp label="Notes"          k="notes" type="textarea" placeholder="Any details…" />
+          <div style={fldStyle}><label style={lblStyle}>Company Name *</label><input style={inpStyle} value={form.company} onChange={set("company")} placeholder="Ridgeline Builders" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Contact Name</label><input style={inpStyle} value={form.contact} onChange={set("contact")} placeholder="Mike Hendricks" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Phone — iOS suggests from contacts</label><input style={inpStyle} type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="208-555-0100" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Job Site</label><input style={inpStyle} value={form.job_site} onChange={set("job_site")} placeholder="1234 Timber Ridge Rd" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Job Type</label>
+            <select style={selStyle} value={form.type} onChange={set("type")}>
+              {["", ...CONFIG.jobTypes].map(o => <option key={o} value={o}>{o || "—"}</option>)}
+            </select>
+          </div>
+          <div style={fldStyle}><label style={lblStyle}>Bid Amount</label><input style={inpStyle} type="number" value={form.bid} onChange={set("bid")} placeholder="0" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Status</label>
+            <select style={selStyle} value={form.status} onChange={set("status")}>
+              {CONFIG.statuses.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div style={fldStyle}><label style={lblStyle}>Crew</label>
+            <select style={selStyle} value={form.crew} onChange={set("crew")}>
+              {["", ...CONFIG.crews].map(o => <option key={o} value={o}>{o || "—"}</option>)}
+            </select>
+          </div>
+          <div style={fldStyle}><label style={lblStyle}>Follow-up Date</label><input style={inpStyle} type="date" value={form.follow_up} onChange={set("follow_up")} /></div>
+          <div style={fldStyle}><label style={lblStyle}>Notes</label><textarea style={{ ...inpStyle, resize: "vertical" }} rows={3} value={form.notes} onChange={set("notes")} placeholder="Any details…" /></div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={() => { if (!form.company) { alert("Company name required"); return; } onSave({ ...form, bid: Number(form.bid) || 0 }); }}
