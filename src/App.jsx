@@ -248,26 +248,34 @@ function Login() {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
+function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
   const today = todayStr();
   const [notifStatus, setNotifStatus] = useState("unknown");
 
   useEffect(() => {
-    const check = async () => {
-      if (window.OneSignal) {
-        const opted = await window.OneSignal.User.PushSubscription.optedIn;
-        setNotifStatus(opted ? "on" : "off");
-      }
+    const init = async () => {
+      try {
+        if (!window.OneSignalDeferred) return;
+        window.OneSignalDeferred.push(async (OneSignal) => {
+          // Tag this user with their Supabase ID for targeted notifications
+          await OneSignal.User.addTag('user_id', userId);
+          const permission = await OneSignal.Notifications.permission;
+          setNotifStatus(permission ? "on" : "off");
+        });
+      } catch (e) { console.log('OneSignal not ready', e); }
     };
-    setTimeout(check, 1500);
-  }, []);
+    setTimeout(init, 2000);
+  }, [userId]);
 
-  const enableNotifications = async () => {
+  const enableNotifications = () => {
     if (window.OneSignalDeferred) {
       window.OneSignalDeferred.push(async (OneSignal) => {
-        await OneSignal.Notifications.requestPermission();
-        const opted = await OneSignal.User.PushSubscription.optedIn;
-        setNotifStatus(opted ? "on" : "off");
+        try {
+          await OneSignal.Notifications.requestPermission();
+          await OneSignal.User.addTag('user_id', userId);
+          const permission = await OneSignal.Notifications.permission;
+          setNotifStatus(permission ? "on" : "off");
+        } catch (e) { console.log('Notification error', e); }
       });
     }
   };
@@ -742,7 +750,7 @@ export default function App() {
         <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} userId={session.user.id} />
       ) : (
         <>
-          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} onQuickAdd={() => setShowQuickAdd(true)} />}
+          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} onQuickAdd={() => setShowQuickAdd(true)} userId={session.user.id} />}
           {tab === "jobs"      && <JobList jobs={jobs} onSelect={setSelected} />}
           {tab === "add"       && <AddJob onSave={handleAdd} onCancel={() => setTab("jobs")} userId={session.user.id} />}
           {tab === "followups" && <FollowUps jobs={jobs} onSelect={setSelected} />}
