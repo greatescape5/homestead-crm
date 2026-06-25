@@ -460,13 +460,13 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             { label: "Company",    k: "company",   type: "text" },
             { label: "Contact",    k: "contact",   type: "text" },
             { label: "Phone",      k: "phone",     type: "tel" },
-            { label: "Job Site Address",   k: "job_site",  type: "text" },
+            { label: "Job Site",   k: "job_site",  type: "text", autoComplete: "off" },
             { label: "Bid Amount", k: "bid",       type: "number" },
-          ].map(({ label, k, type }) => (
+          ].map(({ label, k, type, autoComplete }) => (
             <div key={k} style={rowDiv}>
               <label style={rowLbl}>{label}</label>
               {editing
-                ? <input type={type} value={form[k] || ""} onChange={setF(k)} style={{ ...inpStyle }} />
+                ? <input type={type} value={form[k] || ""} onChange={setF(k)} autoComplete={autoComplete || "on"} style={{ ...inpStyle }} />
                 : <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>{k === "bid" ? fmt$(form[k]) : form[k] || "—"}</div>
               }
             </div>
