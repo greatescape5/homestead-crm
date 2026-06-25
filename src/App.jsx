@@ -66,28 +66,42 @@ function Header({ title, sub, right }) {
 }
 
 function BottomNav({ tab, setTab }) {
-  const tabs = [
+  const sides = [
     { id: "dashboard", icon: "⊞", label: "Dashboard" },
     { id: "jobs",      icon: "🔨", label: "Jobs" },
-    { id: "add",       icon: "+",  label: "", special: true },
+  ];
+  const right = [
     { id: "followups", icon: "📅", label: "Follow-ups" },
   ];
   return (
     <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto", background: T.steel, borderTop: "3px solid " + T.gold, display: "flex", alignItems: "center", zIndex: 100, height: 64 }}>
-      {tabs.map(t => (
-        <button key={t.id} onClick={() => setTab(t.id)} style={{
-          flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0,
-          background: t.special ? T.gold : "transparent",
-          color: t.special ? T.steel : tab === t.id ? T.gold : T.mutedLight,
-          fontSize: t.special ? 26 : 20, fontWeight: t.special ? 900 : 400,
-          borderRadius: t.special ? "50%" : 0, width: t.special ? 52 : "auto",
-          height: t.special ? 52 : "100%", marginTop: t.special ? -16 : 0,
-          boxShadow: t.special ? "0 2px 14px " + T.gold + "88" : "none",
-        }}>
+      {sides.map(t => (
+        <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0, height: "100%", background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20 }}>
           <span style={{ lineHeight: 1 }}>{t.icon}</span>
-          {!t.special && <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>}
+          <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
         </button>
       ))}
+
+      {/* Center + button */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <button onClick={() => setTab("add")} style={{
+          width: 46, height: 46, borderRadius: "50%", border: "none", cursor: "pointer",
+          background: T.gold, color: T.steel, fontSize: 26, fontWeight: 900,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          marginBottom: 8,
+          boxShadow: "0 2px 12px " + T.gold + "88",
+        }}>+</button>
+      </div>
+
+      {right.map(t => (
+        <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0, height: "100%", background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20 }}>
+          <span style={{ lineHeight: 1 }}>{t.icon}</span>
+          <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
+        </button>
+      ))}
+
+      {/* Empty right balance */}
+      <div style={{ flex: 1 }} />
     </nav>
   );
 }
@@ -98,20 +112,10 @@ function QuickAdd({ onSave, onClose, userId }) {
   const [phone, setPhone] = useState("");
   const [reminder, setReminder] = useState("today");
 
-  const importContact = async () => {
-    try {
-      if (!("contacts" in navigator && "ContactsManager" in window)) {
-        alert("Contact import isn't supported on this browser. Try Safari on iPhone.");
-        return;
-      }
-      const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
-      if (contacts.length > 0) {
-        setName(contacts[0].name?.[0] || "");
-        setPhone(contacts[0].tel?.[0] || "");
-      }
-    } catch (e) {
-      alert("Couldn't access contacts. Make sure you allow access when prompted.");
-    }
+  const importContact = () => {
+    // Open phone dialer/contacts — user copies the number back
+    // Best available method for PWA on iOS home screen
+    window.location.href = "tel:";
   };
 
   const handleSave = async () => {
@@ -131,18 +135,14 @@ function QuickAdd({ onSave, onClose, userId }) {
         <div style={{ fontSize: 18, fontWeight: 900, color: T.steel, marginBottom: 6 }}>Quick Add</div>
         <div style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>Capture a call-back in seconds.</div>
 
-        <button onClick={importContact} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 16 }}>
-          📋 Import from Contacts
-        </button>
-
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Name / Company</div>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder="Mike Hendricks" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="Mike Hendricks" autoComplete="name" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
         </div>
 
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Phone</div>
-          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="208-555-0100" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
+          <div style={{ fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Phone <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— iOS will suggest from your contacts</span></div>
+          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="208-555-0100" autoComplete="tel" style={{ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 15, boxSizing: "border-box" }} />
         </div>
 
         <div style={{ marginBottom: 20 }}>
@@ -491,18 +491,18 @@ function AddJob({ onSave, onCancel, userId }) {
 
   const importContact = async () => {
     try {
-      if (!("contacts" in navigator && "ContactsManager" in window)) {
-        alert("Contact import isn't supported on this browser. Try Safari on iPhone.");
-        return;
-      }
-      const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
-      if (contacts.length > 0) {
-        set("contact", contacts[0].name?.[0] || "");
-        set("company", contacts[0].name?.[0] || "");
-        set("phone", contacts[0].tel?.[0] || "");
+      if ("contacts" in navigator && "ContactsManager" in window) {
+        const contacts = await navigator.contacts.select(["name", "tel"], { multiple: false });
+        if (contacts.length > 0) {
+          set("contact", contacts[0].name?.[0] || "");
+          set("company", contacts[0].name?.[0] || "");
+          set("phone", contacts[0].tel?.[0] || "");
+        }
+      } else {
+        alert("Tap the phone field — iOS will suggest contacts automatically.");
       }
     } catch (e) {
-      alert("Couldn't access contacts.");
+      alert("Tap the phone field — iOS will suggest contacts automatically.");
     }
   };
 
