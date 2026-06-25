@@ -252,11 +252,12 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
   const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
-  const overdue = jobs.filter(j => j.follow_up && j.follow_up < today).length;
-  const dueToday = jobs.filter(j => j.follow_up === today).length;
+  const nonClosed = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
+  const overdue = nonClosed.filter(j => j.follow_up && j.follow_up < today).length;
+  const dueToday = nonClosed.filter(j => j.follow_up === today).length;
   const pipeline = jobs.reduce((s, j) => s + (Number(j.bid) || 0), 0);
   const wonValue = jobs.filter(j => ["Active", "Punch List", "Complete", "Invoiced"].includes(j.status)).reduce((s, j) => s + (Number(j.bid) || 0), 0);
-  const callBacks = jobs.filter(j => j.follow_up && j.follow_up <= today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
+  const callBacks = nonClosed.filter(j => j.follow_up && j.follow_up <= today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
   const statBreakdown = CONFIG.statuses.map(s => ({ s, count: jobs.filter(j => j.status === s).length, val: jobs.filter(j => j.status === s).reduce((sum, j) => sum + (Number(j.bid) || 0), 0) })).filter(x => x.count > 0);
 
   return (
@@ -598,9 +599,10 @@ function AddJob({ onSave, onCancel, userId }) {
 
 function FollowUps({ jobs, onSelect }) {
   const today = todayStr();
-  const overdue  = jobs.filter(j => j.follow_up && j.follow_up < today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
-  const dueToday = jobs.filter(j => j.follow_up === today);
-  const upcoming = jobs.filter(j => j.follow_up && j.follow_up > today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
+  const active = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
+  const overdue  = active.filter(j => j.follow_up && j.follow_up < today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
+  const dueToday = active.filter(j => j.follow_up === today);
+  const upcoming = active.filter(j => j.follow_up && j.follow_up > today).sort((a, b) => a.follow_up.localeCompare(b.follow_up));
 
   const Section = ({ title, items, color, accent }) => !items.length ? null : (
     <div style={{ marginBottom: 20 }}>
