@@ -71,9 +71,10 @@
       }
 
       #notif-banner {
-        display: none;
+        display: flex;
         position: fixed;
-        top: 0; left: 0; right: 0;
+        top: env(safe-area-inset-top);
+        left: 0; right: 0;
         z-index: 9999;
         background: #1A2A1A;
         border-bottom: 1px solid #3A8A56;
