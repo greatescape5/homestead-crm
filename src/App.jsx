@@ -250,6 +250,28 @@ function Login() {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
   const today = todayStr();
+  const [notifStatus, setNotifStatus] = useState("unknown");
+
+  useEffect(() => {
+    const check = async () => {
+      if (window.OneSignal) {
+        const opted = await window.OneSignal.User.PushSubscription.optedIn;
+        setNotifStatus(opted ? "on" : "off");
+      }
+    };
+    setTimeout(check, 1500);
+  }, []);
+
+  const enableNotifications = async () => {
+    if (window.OneSignalDeferred) {
+      window.OneSignalDeferred.push(async (OneSignal) => {
+        await OneSignal.Notifications.requestPermission();
+        const opted = await OneSignal.User.PushSubscription.optedIn;
+        setNotifStatus(opted ? "on" : "off");
+      });
+    }
+  };
+  const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
   const nonClosed = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
@@ -274,6 +296,13 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
         <div style={{ background: "#3A1A10", borderBottom: "2px solid " + T.gold, padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 }}>
           <span>🔔</span>
           <span style={{ fontSize: 13, fontWeight: 700, color: "#F5D8A0" }}>{overdue > 0 && overdue + " overdue"}{overdue > 0 && dueToday > 0 && " · "}{dueToday > 0 && dueToday + " due today"}</span>
+        </div>
+      )}
+
+      {notifStatus === "off" && (
+        <div style={{ background: "#1A2A1A", borderBottom: "1px solid #3A8A56", padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, color: "#90D5A0", fontWeight: 600 }}>🔕 Enable push notifications for follow-up reminders</span>
+          <button onClick={enableNotifications} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", marginLeft: 8 }}>Turn On</button>
         </div>
       )}
 
