@@ -460,7 +460,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             { label: "Company",    k: "company",   type: "text" },
             { label: "Contact",    k: "contact",   type: "text" },
             { label: "Phone",      k: "phone",     type: "tel" },
-            { label: "Job Site",   k: "job_site",  type: "text" },
+            { label: "Job Site Address",   k: "job_site",  type: "text" },
             { label: "Bid Amount", k: "bid",       type: "number" },
           ].map(({ label, k, type }) => (
             <div key={k} style={rowDiv}>
