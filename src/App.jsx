@@ -353,8 +353,9 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd }) {
 
 function JobCard({ job, onClick }) {
   const today = todayStr();
-  const overdue = job.follow_up && job.follow_up < today;
-  const dueToday = job.follow_up === today;
+  const isClosed = ["Complete", "Invoiced"].includes(job.status);
+  const overdue = !isClosed && job.follow_up && job.follow_up < today;
+  const dueToday = !isClosed && job.follow_up === today;
   return (
     <div onClick={() => onClick(job)} style={{ background: T.card, borderRadius: 14, padding: 16, marginBottom: 10, border: "1px solid " + T.cardBorder, borderLeft: "4px solid " + (STATUS_CFG[job.status] ? STATUS_CFG[job.status].dot : T.muted), cursor: "pointer" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
@@ -421,6 +422,11 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
     if (!newNote.trim()) return;
     const { data, error } = await supabase.from("job_notes").insert([{ job_id: job.id, user_id: userId, note: newNote.trim() }]).select().single();
     if (!error) { setNotes(n => [data, ...n]); setNewNote(""); }
+  };
+
+  const deleteNote = async (id) => {
+    const { error } = await supabase.from("job_notes").delete().eq("id", id);
+    if (!error) setNotes(n => n.filter(note => note.id !== id));
   };
 
   const handleSave = () => { onSave(form); setEditing(false); };
@@ -528,9 +534,12 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             ) : notes.length === 0 ? (
               <div style={{ textAlign: "center", padding: 20, color: T.mutedLight, fontSize: 13 }}>No notes yet — add your first one above.</div>
             ) : notes.map(n => (
-              <div key={n.id} style={{ borderBottom: "1px solid " + T.cardBorder, paddingBottom: 12, marginBottom: 12 }}>
-                <div style={{ fontSize: 14, color: T.steel, lineHeight: 1.5 }}>{n.note}</div>
-                <div style={{ fontSize: 11, color: T.mutedLight, marginTop: 4 }}>{fmtTime(n.created_at)}</div>
+              <div key={n.id} style={{ borderBottom: "1px solid " + T.cardBorder, paddingBottom: 12, marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, color: T.steel, lineHeight: 1.5 }}>{n.note}</div>
+                  <div style={{ fontSize: 11, color: T.mutedLight, marginTop: 4 }}>{fmtTime(n.created_at)}</div>
+                </div>
+                <button onClick={() => { if (window.confirm("Delete this note?")) deleteNote(n.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.mutedLight, fontSize: 16, padding: "2px 4px", flexShrink: 0, lineHeight: 1 }} title="Delete note">🗑</button>
               </div>
             ))}
           </div>
