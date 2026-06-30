@@ -404,6 +404,208 @@ function JobList({ jobs, onSelect }) {
   );
 }
 
+// ─── INVOICE BUILDER ──────────────────────────────────────────────────────────
+function InvoiceBuilder({ job, onClose }) {
+  const [invoiceNum] = useState("INV-" + Date.now().toString().slice(-6));
+  const [items, setItems] = useState([
+    { desc: job.type || "Services", qty: 1, rate: Number(job.bid) || 0 }
+  ]);
+  const [taxRate, setTaxRate] = useState(0);
+  const [notes, setNotes] = useState("Thank you for your business.");
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date(Date.now() + 30 * 86400000);
+    return d.toISOString().split("T")[0];
+  });
+  const [generating, setGenerating] = useState(false);
+
+  const updateItem = (i, field, val) => {
+    setItems(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
+  };
+  const addItem = () => setItems([...items, { desc: "", qty: 1, rate: 0 }]);
+  const removeItem = (i) => setItems(items.filter((_, idx) => idx !== i));
+
+  const subtotal = items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+  const tax = subtotal * (Number(taxRate) || 0) / 100;
+  const total = subtotal + tax;
+
+  const generatePDF = async () => {
+    setGenerating(true);
+    try {
+      if (!window.jspdf) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      doc.setFontSize(22);
+      doc.setFont(undefined, "bold");
+      doc.text(CONFIG.companyName, 20, 25);
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.text(CONFIG.companySubtitle, 20, 32);
+
+      doc.setFontSize(28);
+      doc.setFont(undefined, "bold");
+      doc.text("INVOICE", 190, 25, { align: "right" });
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.text(invoiceNum, 190, 32, { align: "right" });
+
+      doc.setFontSize(11);
+      doc.setFont(undefined, "bold");
+      doc.text("BILL TO", 20, 50);
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(10);
+      doc.text(job.company || "", 20, 57);
+      if (job.contact) doc.text(job.contact, 20, 63);
+      if (job.job_site) doc.text(job.job_site, 20, 69);
+
+      doc.setFontSize(10);
+      doc.text("Date: " + todayStr(), 190, 57, { align: "right" });
+      doc.text("Due: " + dueDate, 190, 63, { align: "right" });
+
+      let y = 85;
+      doc.setFillColor(26, 26, 26);
+      doc.rect(20, y - 6, 170, 9, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(9);
+      doc.text("DESCRIPTION", 23, y);
+      doc.text("QTY", 130, y, { align: "right" });
+      doc.text("RATE", 155, y, { align: "right" });
+      doc.text("AMOUNT", 187, y, { align: "right" });
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, "normal");
+      y += 10;
+      items.forEach(it => {
+        const amt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+        doc.text(String(it.desc || ""), 23, y);
+        doc.text(String(it.qty), 130, y, { align: "right" });
+        doc.text("$" + Number(it.rate).toLocaleString(), 155, y, { align: "right" });
+        doc.text("$" + amt.toLocaleString(), 187, y, { align: "right" });
+        y += 8;
+      });
+
+      y += 5;
+      doc.line(120, y, 190, y);
+      y += 7;
+      doc.text("Subtotal:", 155, y, { align: "right" });
+      doc.text("$" + subtotal.toLocaleString(), 187, y, { align: "right" });
+      if (tax > 0) {
+        y += 7;
+        doc.text(`Tax (${taxRate}%):`, 155, y, { align: "right" });
+        doc.text("$" + tax.toLocaleString(), 187, y, { align: "right" });
+      }
+      y += 9;
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(12);
+      doc.text("TOTAL:", 155, y, { align: "right" });
+      doc.text("$" + total.toLocaleString(), 187, y, { align: "right" });
+
+      if (notes) {
+        y += 20;
+        doc.setFont(undefined, "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        doc.text(notes, 20, y);
+      }
+
+      doc.save(`${invoiceNum}-${job.company || "invoice"}.pdf`);
+    } catch (e) {
+      alert("Error generating PDF. Try again.");
+      console.error(e);
+    }
+    setGenerating(false);
+  };
+
+  const lbl = { fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, display: "block" };
+  const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.cardBorder, fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fff" };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 300, overflowY: "auto" }}>
+      <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Cancel</button>
+        <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Create Invoice</div>
+        <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>{invoiceNum} · {job.company}</div>
+      </div>
+
+      <div style={{ padding: "16px 16px 40px", maxWidth: 480, margin: "0 auto" }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: T.steel, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Line Items</div>
+          {items.map((it, i) => (
+            <div key={i} style={{ marginBottom: 14, paddingBottom: 14, borderBottom: i < items.length - 1 ? "1px solid " + T.cardBorder : "none" }}>
+              <input value={it.desc} onChange={e => updateItem(i, "desc", e.target.value)} placeholder="Description" style={{ ...inp, marginBottom: 8 }} />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Qty</label>
+                  <input type="number" value={it.qty} onChange={e => updateItem(i, "qty", e.target.value)} style={inp} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Rate</label>
+                  <input type="number" value={it.rate} onChange={e => updateItem(i, "rate", e.target.value)} style={inp} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={lbl}>Amount</label>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: T.gold, padding: "10px 0" }}>{fmt$((Number(it.qty) || 0) * (Number(it.rate) || 0))}</div>
+                </div>
+                {items.length > 1 && (
+                  <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: 18, padding: 4 }}>🗑</button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button onClick={addItem} style={{ width: "100%", background: T.bg, color: T.steel, border: "1px dashed " + T.cardBorder, borderRadius: 8, padding: 10, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>+ Add Line Item</button>
+        </div>
+
+        <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>Tax Rate (%)</label>
+              <input type="number" value={taxRate} onChange={e => setTaxRate(e.target.value)} style={inp} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>Due Date</label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inp} />
+            </div>
+          </div>
+          <label style={lbl}>Notes</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inp, resize: "vertical" }} />
+        </div>
+
+        <div style={{ background: T.steel, borderRadius: 14, padding: 18, marginBottom: 14, border: "3px solid " + T.gold }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 13, color: T.mutedLight }}>Subtotal</span>
+            <span style={{ fontSize: 14, color: T.white, fontWeight: 600 }}>{fmt$(subtotal)}</span>
+          </div>
+          {tax > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <span style={{ fontSize: 13, color: T.mutedLight }}>Tax ({taxRate}%)</span>
+              <span style={{ fontSize: 14, color: T.white, fontWeight: 600 }}>{fmt$(tax)}</span>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTop: "1px solid #333" }}>
+            <span style={{ fontSize: 15, color: T.gold, fontWeight: 800 }}>TOTAL</span>
+            <span style={{ fontSize: 22, color: T.gold, fontWeight: 900 }}>{fmt$(total)}</span>
+          </div>
+        </div>
+
+        <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1 }}>
+          {generating ? "Generating..." : "📄 Download PDF"}
+        </button>
+        <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>Payment collection via Stripe coming soon</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── JOB DETAIL WITH NOTES HISTORY ───────────────────────────────────────────
 function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [editing, setEditing] = useState(false);
@@ -411,6 +613,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(true);
+  const [showInvoice, setShowInvoice] = useState(false);
   const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
@@ -550,10 +753,16 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             Save Changes
           </button>
         )}
+
+        <button onClick={() => setShowInvoice(true)} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10 }}>
+          📄 Create Invoice
+        </button>
+
         <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, marginBottom: 40 }}>
           Delete Job
         </button>
       </div>
+      {showInvoice && <InvoiceBuilder job={job} onClose={() => setShowInvoice(false)} />}
     </div>
   );
 }
