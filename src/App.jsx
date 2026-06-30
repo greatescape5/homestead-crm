@@ -578,100 +578,155 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
     }
   };
 
+  // Share the PDF (with embedded Pay button) via the native share sheet — text, email, AirDrop, etc.
+  const sharePDF = async () => {
+    if (!sentInfo?.paymentUrl) return;
+    try {
+      const file = await buildPDF(sentInfo.paymentUrl, "blob");
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Invoice ${invoiceNum}`,
+          text: `Invoice from ${CONFIG.companyName} — pay online with the button inside.`,
+        });
+      } else {
+        // Fallback: download it so they can attach manually
+        await buildPDF(sentInfo.paymentUrl, "save");
+        alert("PDF downloaded — attach it to your text or email.");
+      }
+    } catch (e) {
+      // user cancelled share or error — ignore cancellations
+      if (e && e.name !== "AbortError") console.error(e);
+    }
+  };
+
+  const downloadInvoiceWithLink = async () => {
+    if (!sentInfo?.paymentUrl) return;
+    await buildPDF(sentInfo.paymentUrl, "save");
+  };
+
+  // Builds the PDF. If payUrl is passed, embeds a Pay Online button.
+  // mode: "save" downloads it, "blob" returns the file for sharing.
+  const buildPDF = async (payUrl, mode = "save") => {
+    if (!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(22);
+    doc.setFont(undefined, "bold");
+    doc.text(CONFIG.companyName, 20, 25);
+    doc.setFontSize(10);
+    doc.setFont(undefined, "normal");
+    doc.text(CONFIG.companySubtitle, 20, 32);
+
+    doc.setFontSize(28);
+    doc.setFont(undefined, "bold");
+    doc.text("INVOICE", 190, 25, { align: "right" });
+    doc.setFontSize(10);
+    doc.setFont(undefined, "normal");
+    doc.text(invoiceNum, 190, 32, { align: "right" });
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, "bold");
+    doc.text("BILL TO", 20, 50);
+    doc.setFont(undefined, "normal");
+    doc.setFontSize(10);
+    doc.text(client.company || "", 20, 57);
+    if (client.contact) doc.text(client.contact, 20, 63);
+    let addrY = 69;
+    if (client.street) { doc.text(client.street, 20, addrY); addrY += 6; }
+    const cityLine = [client.town, "Idaho"].filter(Boolean).join(", ");
+    if (cityLine) doc.text(cityLine, 20, addrY);
+
+    doc.setFontSize(10);
+    doc.text("Date: " + todayStr(), 190, 57, { align: "right" });
+    doc.text("Due: " + dueDate, 190, 63, { align: "right" });
+
+    let y = 85;
+    doc.setFillColor(26, 26, 26);
+    doc.rect(20, y - 6, 170, 9, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, "bold");
+    doc.setFontSize(9);
+    doc.text("DESCRIPTION", 23, y);
+    doc.text("QTY", 130, y, { align: "right" });
+    doc.text("RATE", 155, y, { align: "right" });
+    doc.text("AMOUNT", 187, y, { align: "right" });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, "normal");
+    y += 10;
+    items.forEach(it => {
+      const amt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
+      doc.text(String(it.desc || ""), 23, y);
+      doc.text(String(it.qty), 130, y, { align: "right" });
+      doc.text("$" + Number(it.rate).toLocaleString(), 155, y, { align: "right" });
+      doc.text("$" + amt.toLocaleString(), 187, y, { align: "right" });
+      y += 8;
+    });
+
+    y += 5;
+    doc.line(120, y, 190, y);
+    y += 7;
+    doc.text("Subtotal:", 155, y, { align: "right" });
+    doc.text("$" + subtotal.toLocaleString(), 187, y, { align: "right" });
+    if (tax > 0) {
+      y += 7;
+      doc.text(`Tax (${taxRate}%):`, 155, y, { align: "right" });
+      doc.text("$" + tax.toLocaleString(), 187, y, { align: "right" });
+    }
+    y += 9;
+    doc.setFont(undefined, "bold");
+    doc.setFontSize(12);
+    doc.text("TOTAL:", 155, y, { align: "right" });
+    doc.text("$" + total.toLocaleString(), 187, y, { align: "right" });
+
+    // Embedded Pay Online button
+    if (payUrl) {
+      y += 18;
+      doc.setFillColor(200, 169, 110); // gold
+      doc.roundedRect(20, y - 7, 80, 13, 2, 2, "F");
+      doc.setTextColor(26, 26, 26);
+      doc.setFont(undefined, "bold");
+      doc.setFontSize(12);
+      doc.textWithLink("Pay Online  →", 27, y + 1.5, { url: payUrl });
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.text("Or pay at: " + payUrl, 20, y + 14, { maxWidth: 170 });
+      y += 20;
+    }
+
+    if (notes) {
+      y += 12;
+      doc.setFont(undefined, "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 100);
+      doc.text(notes, 20, y);
+    }
+
+    const filename = `${invoiceNum}-${client.company || "invoice"}.pdf`;
+    if (mode === "blob") {
+      const blob = doc.output("blob");
+      return new File([blob], filename, { type: "application/pdf" });
+    }
+    doc.save(filename);
+  };
+
+  // Download-only PDF (no pay link) — kept for the standalone Download button
   const generatePDF = async () => {
     setGenerating(true);
     try {
-      if (!window.jspdf) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-      }
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      doc.setFontSize(22);
-      doc.setFont(undefined, "bold");
-      doc.text(CONFIG.companyName, 20, 25);
-      doc.setFontSize(10);
-      doc.setFont(undefined, "normal");
-      doc.text(CONFIG.companySubtitle, 20, 32);
-
-      doc.setFontSize(28);
-      doc.setFont(undefined, "bold");
-      doc.text("INVOICE", 190, 25, { align: "right" });
-      doc.setFontSize(10);
-      doc.setFont(undefined, "normal");
-      doc.text(invoiceNum, 190, 32, { align: "right" });
-
-      doc.setFontSize(11);
-      doc.setFont(undefined, "bold");
-      doc.text("BILL TO", 20, 50);
-      doc.setFont(undefined, "normal");
-      doc.setFontSize(10);
-      doc.text(client.company || "", 20, 57);
-      if (client.contact) doc.text(client.contact, 20, 63);
-      let addrY = 69;
-      if (client.street) { doc.text(client.street, 20, addrY); addrY += 6; }
-      const cityLine = [client.town, "Idaho"].filter(Boolean).join(", ");
-      if (cityLine) doc.text(cityLine, 20, addrY);
-
-      doc.setFontSize(10);
-      doc.text("Date: " + todayStr(), 190, 57, { align: "right" });
-      doc.text("Due: " + dueDate, 190, 63, { align: "right" });
-
-      let y = 85;
-      doc.setFillColor(26, 26, 26);
-      doc.rect(20, y - 6, 170, 9, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFont(undefined, "bold");
-      doc.setFontSize(9);
-      doc.text("DESCRIPTION", 23, y);
-      doc.text("QTY", 130, y, { align: "right" });
-      doc.text("RATE", 155, y, { align: "right" });
-      doc.text("AMOUNT", 187, y, { align: "right" });
-
-      doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, "normal");
-      y += 10;
-      items.forEach(it => {
-        const amt = (Number(it.qty) || 0) * (Number(it.rate) || 0);
-        doc.text(String(it.desc || ""), 23, y);
-        doc.text(String(it.qty), 130, y, { align: "right" });
-        doc.text("$" + Number(it.rate).toLocaleString(), 155, y, { align: "right" });
-        doc.text("$" + amt.toLocaleString(), 187, y, { align: "right" });
-        y += 8;
-      });
-
-      y += 5;
-      doc.line(120, y, 190, y);
-      y += 7;
-      doc.text("Subtotal:", 155, y, { align: "right" });
-      doc.text("$" + subtotal.toLocaleString(), 187, y, { align: "right" });
-      if (tax > 0) {
-        y += 7;
-        doc.text(`Tax (${taxRate}%):`, 155, y, { align: "right" });
-        doc.text("$" + tax.toLocaleString(), 187, y, { align: "right" });
-      }
-      y += 9;
-      doc.setFont(undefined, "bold");
-      doc.setFontSize(12);
-      doc.text("TOTAL:", 155, y, { align: "right" });
-      doc.text("$" + total.toLocaleString(), 187, y, { align: "right" });
-
-      if (notes) {
-        y += 20;
-        doc.setFont(undefined, "normal");
-        doc.setFontSize(9);
-        doc.setTextColor(100, 100, 100);
-        doc.text(notes, 20, y);
-      }
-
-      doc.save(`${invoiceNum}-${client.company || "invoice"}.pdf`);
+      await buildPDF(null, "save");
     } catch (e) {
       alert("Error generating PDF. Try again.");
       console.error(e);
@@ -800,25 +855,29 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
 
         {sentInfo ? (
           <div style={{ background: "#EBF5EE", border: "1px solid #3A8A56", borderRadius: 12, padding: 16, marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.success, fontWeight: 800, fontSize: 15, marginBottom: 8 }}>
-              <Icon name="check" size={18} /> Payment Link Ready
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.success, fontWeight: 800, fontSize: 15, marginBottom: 4 }}>
+              <Icon name="check" size={18} /> Invoice Ready
             </div>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: 8, wordBreak: "break-all", background: "#fff", border: "1px solid " + T.cardBorder, borderRadius: 8, padding: "8px 10px" }}>{sentInfo.paymentUrl}</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={copyLink} style={{ flex: 1, minWidth: 90, background: T.steel, color: T.gold, border: "none", borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>Copy Link</button>
-              <a href={`sms:${client.phone || ""}?&body=${encodeURIComponent("Here's your invoice from " + CONFIG.companyName + ": " + sentInfo.paymentUrl)}`} style={{ flex: 1, minWidth: 90, background: T.gold, color: T.steel, borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center" }}>Text</a>
-              <a href={`mailto:${client.email || ""}?subject=${encodeURIComponent("Invoice from " + CONFIG.companyName)}&body=${encodeURIComponent("Here's your invoice. Pay securely here: " + sentInfo.paymentUrl)}`} style={{ flex: 1, minWidth: 90, background: T.gold, color: T.steel, borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center" }}>Email</a>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 12, lineHeight: 1.5 }}>Share the PDF — it has a Pay Online button built in. Or copy the raw link.</div>
+            <button onClick={sharePDF} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 10, padding: "12px", fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Icon name="message" size={16} /> Share Invoice (Text / Email)
+            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={downloadInvoiceWithLink} style={{ flex: 1, background: T.bg, color: T.steel, border: "1px solid " + T.cardBorder, borderRadius: 10, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Download PDF</button>
+              <button onClick={copyLink} style={{ flex: 1, background: T.bg, color: T.steel, border: "1px solid " + T.cardBorder, borderRadius: 10, padding: "10px", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Copy Link</button>
             </div>
           </div>
         ) : (
           <button onClick={sendInvoice} disabled={sending} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: sending ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            {sending ? "Creating..." : <><Icon name="card" size={18} /> Create Payment Link</>}
+            {sending ? "Creating..." : <><Icon name="card" size={18} /> Create Invoice + Pay Link</>}
           </button>
         )}
 
-        <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          {generating ? "Generating..." : <><Icon name="invoice" size={18} /> Download PDF</>}
-        </button>
+        {!sentInfo && (
+          <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {generating ? "Generating..." : <><Icon name="invoice" size={18} /> Download PDF (no pay link)</>}
+          </button>
+        )}
         <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>A 0.5% platform fee applies to paid invoices.</div>
       </div>
     </div>
