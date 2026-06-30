@@ -111,7 +111,8 @@ function BottomNav({ tab, setTab, onCreateInvoice }) {
 
   return (
     <nav style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto",
+      position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
+      width: "100%", maxWidth: 480,
       background: T.steel, borderTop: "3px solid " + T.gold, zIndex: 100,
       display: "flex", alignItems: "flex-start",
       paddingBottom: "env(safe-area-inset-bottom)",
