@@ -102,13 +102,13 @@ function Header({ title, sub, right }) {
 }
 
 function BottomNav({ tab, setTab, onCreateInvoice }) {
-  const sides = [
-    { id: "dashboard", icon: "dashboard", label: "Dashboard" },
-    { id: "jobs",      icon: "jobs", label: "Jobs" },
-  ];
-  const right = [
-    { id: "followups", icon: "calendar", label: "Follow-ups" },
-  ];
+  const slotStyle = {
+    flex: "1 1 0", minWidth: 0, border: "none", cursor: "pointer",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+    gap: 4, padding: "10px 0 0", height: 60, background: "transparent",
+  };
+  const labelStyle = (activeTab) => ({ fontSize: 10, fontWeight: activeTab ? 700 : 500, whiteSpace: "nowrap" });
+
   return (
     <nav style={{
       position: "fixed", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto",
@@ -117,47 +117,34 @@ function BottomNav({ tab, setTab, onCreateInvoice }) {
       paddingBottom: "env(safe-area-inset-bottom)",
       height: "calc(60px + env(safe-area-inset-bottom))",
     }}>
-      {sides.map(t => (
-        <button key={t.id} onClick={() => setTab(t.id)} style={{
-          flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
-          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight,
-        }}>
-          <Icon name={t.icon} size={22} stroke={tab === t.id ? 2.4 : 2} />
-          <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
-        </button>
-      ))}
+      <button onClick={() => setTab("dashboard")} style={{ ...slotStyle, color: tab === "dashboard" ? T.gold : T.mutedLight }}>
+        <Icon name="dashboard" size={22} stroke={tab === "dashboard" ? 2.4 : 2} />
+        <span style={labelStyle(tab === "dashboard")}>Dashboard</span>
+      </button>
 
-      {/* Center + button — sits above the nav bar */}
-      <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6 }}>
+      <button onClick={() => setTab("jobs")} style={{ ...slotStyle, color: tab === "jobs" ? T.gold : T.mutedLight }}>
+        <Icon name="jobs" size={22} stroke={tab === "jobs" ? 2.4 : 2} />
+        <span style={labelStyle(tab === "jobs")}>Jobs</span>
+      </button>
+
+      {/* Center + button */}
+      <div style={{ flex: "1 1 0", minWidth: 0, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6 }}>
         <button onClick={() => setTab("add")} style={{
           width: 44, height: 44, borderRadius: "50%", border: "none", cursor: "pointer",
           background: T.gold, color: T.steel,
           display: "flex", alignItems: "center", justifyContent: "center",
-          marginTop: -22,
-          boxShadow: "0 2px 12px " + T.gold + "99",
+          marginTop: -22, boxShadow: "0 2px 12px " + T.gold + "99",
         }}><Icon name="plus" size={24} stroke={2.6} /></button>
       </div>
 
-      {right.map(t => (
-        <button key={t.id} onClick={() => setTab(t.id)} style={{
-          flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
-          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight,
-        }}>
-          <Icon name={t.icon} size={22} stroke={tab === t.id ? 2.4 : 2} />
-          <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
-        </button>
-      ))}
+      <button onClick={() => setTab("followups")} style={{ ...slotStyle, color: tab === "followups" ? T.gold : T.mutedLight }}>
+        <Icon name="calendar" size={22} stroke={tab === "followups" ? 2.4 : 2} />
+        <span style={labelStyle(tab === "followups")}>Follow-ups</span>
+      </button>
 
-      {/* Create Invoice button filling right space */}
-      <button onClick={onCreateInvoice} style={{
-        flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
-        height: 60, background: "transparent", color: T.mutedLight,
-      }}>
+      <button onClick={onCreateInvoice} style={{ ...slotStyle, color: T.mutedLight }}>
         <Icon name="invoice" size={22} stroke={2} />
-        <span style={{ fontSize: 10, fontWeight: 500 }}>Invoice</span>
+        <span style={labelStyle(false)}>Invoice</span>
       </button>
     </nav>
   );
@@ -420,12 +407,12 @@ function JobCard({ job, onClick }) {
   return (
     <div onClick={() => onClick(job)} style={{ background: T.card, borderRadius: 14, padding: 16, marginBottom: 10, border: "1px solid " + T.cardBorder, borderLeft: "4px solid " + (STATUS_CFG[job.status] ? STATUS_CFG[job.status].dot : T.muted), cursor: "pointer" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, color: T.steel, flex: 1 }}>{job.company}</div>
+        <div style={{ fontWeight: 800, fontSize: 15, color: T.steel, flex: 1 }}>{job.contact || job.company || "—"}</div>
         <Badge status={job.status} />
       </div>
       <div style={{ fontSize: 12, color: T.muted, marginTop: 5, display: "flex", alignItems: "center", gap: 5 }}><Icon name="pin" size={13} /> {job.job_site || "No site set"}</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
-        <div style={{ fontSize: 12, color: T.muted }}>{job.type || "—"}{job.crew ? " · " + job.crew : ""}</div>
+        <div style={{ fontSize: 12, color: T.muted }}>{job.company || "—"}</div>
         <div style={{ fontWeight: 900, color: T.gold, fontSize: 17 }}>{fmt$(job.bid)}</div>
       </div>
       {(overdue || dueToday) && (
