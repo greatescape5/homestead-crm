@@ -75,7 +75,7 @@ function Header({ title, sub, right }) {
   );
 }
 
-function BottomNav({ tab, setTab }) {
+function BottomNav({ tab, setTab, onCreateInvoice }) {
   const sides = [
     { id: "dashboard", icon: "⊞", label: "Dashboard" },
     { id: "jobs",      icon: "🔨", label: "Jobs" },
@@ -124,8 +124,15 @@ function BottomNav({ tab, setTab }) {
         </button>
       ))}
 
-      {/* Balance right side */}
-      <div style={{ flex: 1 }} />
+      {/* Create Invoice button filling right space */}
+      <button onClick={onCreateInvoice} style={{
+        flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
+        height: 60, background: "transparent", color: T.mutedLight, fontSize: 20,
+      }}>
+        <span style={{ lineHeight: 1 }}>📄</span>
+        <span style={{ fontSize: 10, fontWeight: 500 }}>Invoice</span>
+      </button>
     </nav>
   );
 }
@@ -405,10 +412,16 @@ function JobList({ jobs, onSelect }) {
 }
 
 // ─── INVOICE BUILDER ──────────────────────────────────────────────────────────
-function InvoiceBuilder({ job, onClose }) {
+function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   const [invoiceNum] = useState("INV-" + Date.now().toString().slice(-6));
+  const [client, setClient] = useState({
+    company: job?.company || "",
+    contact: job?.contact || "",
+    address: job?.job_site || "",
+  });
+  const [showSuggest, setShowSuggest] = useState(false);
   const [items, setItems] = useState([
-    { desc: job.type || "Services", qty: 1, rate: Number(job.bid) || 0 }
+    { desc: job?.type || "Services", qty: 1, rate: Number(job?.bid) || 0 }
   ]);
   const [taxRate, setTaxRate] = useState(0);
   const [notes, setNotes] = useState("Thank you for your business.");
@@ -417,6 +430,19 @@ function InvoiceBuilder({ job, onClose }) {
     return d.toISOString().split("T")[0];
   });
   const [generating, setGenerating] = useState(false);
+
+  // Autocomplete: filter existing jobs by what's typed
+  const suggestions = standalone && client.company.length > 0
+    ? (allJobs || []).filter(j => {
+        const q = client.company.toLowerCase();
+        return (j.company || "").toLowerCase().includes(q) || (j.contact || "").toLowerCase().includes(q);
+      }).slice(0, 5)
+    : [];
+
+  const pickSuggestion = (j) => {
+    setClient({ company: j.company || "", contact: j.contact || "", address: j.job_site || "" });
+    setShowSuggest(false);
+  };
 
   const updateItem = (i, field, val) => {
     setItems(items.map((item, idx) => idx === i ? { ...item, [field]: val } : item));
@@ -463,9 +489,9 @@ function InvoiceBuilder({ job, onClose }) {
       doc.text("BILL TO", 20, 50);
       doc.setFont(undefined, "normal");
       doc.setFontSize(10);
-      doc.text(job.company || "", 20, 57);
-      if (job.contact) doc.text(job.contact, 20, 63);
-      if (job.job_site) doc.text(job.job_site, 20, 69);
+      doc.text(client.company || "", 20, 57);
+      if (client.contact) doc.text(client.contact, 20, 63);
+      if (client.address) doc.text(client.address, 20, 69);
 
       doc.setFontSize(10);
       doc.text("Date: " + todayStr(), 190, 57, { align: "right" });
@@ -518,7 +544,7 @@ function InvoiceBuilder({ job, onClose }) {
         doc.text(notes, 20, y);
       }
 
-      doc.save(`${invoiceNum}-${job.company || "invoice"}.pdf`);
+      doc.save(`${invoiceNum}-${client.company || "invoice"}.pdf`);
     } catch (e) {
       alert("Error generating PDF. Try again.");
       console.error(e);
@@ -534,10 +560,44 @@ function InvoiceBuilder({ job, onClose }) {
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
         <button onClick={onClose} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Cancel</button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Create Invoice</div>
-        <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>{invoiceNum} · {job.company}</div>
+        <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>{invoiceNum}{client.company ? " · " + client.company : ""}</div>
       </div>
 
       <div style={{ padding: "16px 16px 40px", maxWidth: 480, margin: "0 auto" }}>
+        {/* Bill To / Client info */}
+        <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: T.steel, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Bill To</div>
+          <div style={{ marginBottom: 12, position: "relative" }}>
+            <label style={lbl}>Company / Name</label>
+            <input
+              value={client.company}
+              onChange={e => { setClient({ ...client, company: e.target.value }); setShowSuggest(true); }}
+              onFocus={() => setShowSuggest(true)}
+              placeholder="Client name or company"
+              autoComplete="off"
+              style={inp}
+            />
+            {standalone && showSuggest && suggestions.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid " + T.cardBorder, borderRadius: 8, marginTop: 4, zIndex: 10, boxShadow: "0 4px 12px #0002", overflow: "hidden" }}>
+                {suggestions.map(s => (
+                  <div key={s.id} onClick={() => pickSuggestion(s)} style={{ padding: "10px 12px", borderBottom: "1px solid " + T.cardBorder, cursor: "pointer", fontSize: 14 }}>
+                    <div style={{ fontWeight: 700, color: T.steel }}>{s.company}</div>
+                    {s.contact && <div style={{ fontSize: 12, color: T.muted }}>{s.contact}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>Contact Name</label>
+            <input value={client.contact} onChange={e => setClient({ ...client, contact: e.target.value })} placeholder="Contact person" autoComplete="off" style={inp} />
+          </div>
+          <div>
+            <label style={lbl}>Address</label>
+            <input value={client.address} onChange={e => setClient({ ...client, address: e.target.value })} placeholder="Job site / billing address" autoComplete="off" style={inp} />
+          </div>
+        </div>
+
         <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: T.steel, textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Line Items</div>
           {items.map((it, i) => (
@@ -874,6 +934,7 @@ export default function App() {
   const [selected, setSelected] = useState(null);
   const [toast, setToast] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [showStandaloneInvoice, setShowStandaloneInvoice] = useState(false);
 
   const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800); };
 
@@ -925,6 +986,7 @@ export default function App() {
     <div style={root}>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
       {showQuickAdd && <QuickAdd onSave={handleQuickAdd} onClose={() => setShowQuickAdd(false)} userId={session.user.id} />}
+      {showStandaloneInvoice && <InvoiceBuilder job={null} standalone={true} allJobs={jobs} onClose={() => setShowStandaloneInvoice(false)} />}
       {selected ? (
         <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} userId={session.user.id} />
       ) : (
@@ -935,7 +997,7 @@ export default function App() {
           {tab === "followups" && <FollowUps jobs={jobs} onSelect={setSelected} />}
         </>
       )}
-      {!selected && <BottomNav tab={tab} setTab={setTab} />}
+      {!selected && <BottomNav tab={tab} setTab={setTab} onCreateInvoice={() => setShowStandaloneInvoice(true)} />}
     </div>
   );
 }
