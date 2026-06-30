@@ -562,7 +562,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 300, overflowY: "auto" }}>
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Cancel</button>
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, fontSize: 18, fontWeight: 900, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>← <span style={{ fontSize: 13, fontWeight: 700 }}>Back</span></button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Create Invoice</div>
         <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>{invoiceNum}{client.company ? " · " + client.company : ""}</div>
       </div>
