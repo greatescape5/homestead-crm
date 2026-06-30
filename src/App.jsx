@@ -45,6 +45,38 @@ const fmtFollowUp = (date, time) => {
   return `${date} at ${h12}:${m} ${ampm}`;
 };
 
+// ─── SWIPE-BACK HOOK ──────────────────────────────────────────────────────────
+// iOS-style edge swipe: start near the left edge, drag right past a threshold → onBack()
+function useSwipeBack(onBack) {
+  useEffect(() => {
+    let startX = 0, startY = 0, tracking = false;
+    const EDGE = 40;        // must start within 40px of left edge
+    const THRESHOLD = 80;   // must travel 80px right
+    const MAX_VERT = 60;    // ignore if too much vertical movement (it's a scroll)
+
+    const onStart = (e) => {
+      const t = e.touches[0];
+      if (t.clientX <= EDGE) { tracking = true; startX = t.clientX; startY = t.clientY; }
+      else { tracking = false; }
+    };
+    const onEnd = (e) => {
+      if (!tracking) return;
+      tracking = false;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      if (dx > THRESHOLD && dy < MAX_VERT) onBack();
+    };
+
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchend", onEnd);
+    };
+  }, [onBack]);
+}
+
 // ─── ICONS — clean monochrome line icons (inherit color via currentColor) ─────
 function Icon({ name, size = 20, stroke = 2, style }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round", style };
@@ -455,6 +487,7 @@ function JobList({ jobs, onSelect }) {
 
 // ─── INVOICE BUILDER ──────────────────────────────────────────────────────────
 function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
+  useSwipeBack(onClose);
   const [invoiceNum] = useState("INV-" + Date.now().toString().slice(-6));
   const [client, setClient] = useState({
     company: job?.company || "",
@@ -731,6 +764,9 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(true);
   const [showInvoice, setShowInvoice] = useState(false);
+
+  // Swipe back to job list — but not while the invoice overlay or an inline edit is open
+  useSwipeBack(() => { if (!showInvoice && !editingField) onBack(); });
 
   useEffect(() => {
     supabase.from("job_notes").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
