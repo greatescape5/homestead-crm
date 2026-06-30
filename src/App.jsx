@@ -542,6 +542,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [sentInfo, setSentInfo] = useState(null);
+  const [savingPdf, setSavingPdf] = useState(false);
 
   // Autocomplete: filter existing jobs by what's typed
   const suggestions = standalone && client.company.length > 0
@@ -585,7 +586,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
       });
       const data = await res.json();
       if (data.ok) {
-        setSentInfo({ paymentUrl: data.paymentUrl });
+        setSentInfo({ paymentUrl: data.paymentUrl, recordId: data.recordId });
       } else {
         alert("Could not create payment link: " + (data.error || "unknown error"));
       }
@@ -629,6 +630,37 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
   const downloadInvoiceWithLink = async () => {
     if (!sentInfo?.paymentUrl) return;
     await buildPDF(sentInfo.paymentUrl, "save");
+  };
+
+  // Save the generated PDF to the client's profile (Supabase Storage + invoices record)
+  const saveToProfile = async () => {
+    setSavingPdf(true);
+    try {
+      let recId = sentInfo?.recordId;
+      // Create an invoice record first if one doesn't already exist (e.g. PDF saved without a pay link)
+      if (!recId) {
+        const { data: ins, error: insErr } = await supabase.from("invoices").insert([{
+          user_id: userId,
+          job_id: job?.id || null,
+          customer_name: client.contact || client.company,
+          customer_email: client.email,
+          amount_cents: Math.round(total * 100),
+          status: "saved",
+        }]).select("id").single();
+        if (insErr) throw insErr;
+        recId = ins.id;
+      }
+      const file = await buildPDF(sentInfo?.paymentUrl || null, "blob");
+      const path = `${userId}/${recId}.pdf`;
+      const { error: upErr } = await supabase.storage.from("invoice-pdfs").upload(path, file, { upsert: true, contentType: "application/pdf" });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("invoice-pdfs").getPublicUrl(path);
+      await supabase.from("invoices").update({ pdf_url: pub.publicUrl }).eq("id", recId);
+      alert("Saved to client profile");
+    } catch (e) {
+      alert("Could not save PDF: " + (e.message || e));
+    }
+    setSavingPdf(false);
   };
 
   // Builds the PDF. If payUrl is passed, embeds a Pay Online button.
@@ -908,6 +940,12 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
             {generating ? "Generating..." : <><Icon name="invoice" size={18} /> Download PDF (no pay link)</>}
           </button>
         )}
+
+        {job && (
+          <button onClick={saveToProfile} disabled={savingPdf} style={{ width: "100%", background: T.card, color: T.steel, border: "1px solid " + T.cardBorder, borderRadius: 12, padding: 13, fontWeight: 800, fontSize: 14, cursor: "pointer", marginBottom: 10, opacity: savingPdf ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {savingPdf ? "Saving..." : <><Icon name="note" size={16} /> Save PDF to Client Profile</>}
+          </button>
+        )}
         <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>A 0.5% platform fee applies to paid invoices.</div>
       </div>
     </div>
@@ -923,6 +961,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(true);
   const [showInvoice, setShowInvoice] = useState(false);
+  const [invoices, setInvoices] = useState([]);
 
   // Swipe back to job list — but not while the invoice overlay or an inline edit is open
   useSwipeBack(() => { if (!showInvoice && !editingField) onBack(); });
@@ -931,6 +970,28 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
     supabase.from("job_notes").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
       .then(({ data }) => { setNotes(data || []); setLoadingNotes(false); });
   }, [job.id]);
+
+  const loadInvoices = () => {
+    supabase.from("invoices").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
+      .then(({ data }) => setInvoices(data || []));
+  };
+  // Load invoices on open, and refresh whenever the invoice builder closes
+  useEffect(() => { if (!showInvoice) loadInvoices(); }, [job.id, showInvoice]);
+
+  const deleteInvoice = async (inv) => {
+    if (!window.confirm("Delete this invoice record?")) return;
+    if (inv.pdf_url) {
+      await supabase.storage.from("invoice-pdfs").remove([`${userId}/${inv.id}.pdf`]);
+    }
+    const { error } = await supabase.from("invoices").delete().eq("id", inv.id);
+    if (!error) setInvoices(invs => invs.filter(i => i.id !== inv.id));
+  };
+
+  const invStatusStyle = (status) => {
+    if (status === "paid") return { bg: "#EBF5EE", color: T.success, label: "Paid" };
+    if (status === "saved") return { bg: "#F2F0EC", color: T.muted, label: "Saved" };
+    return { bg: "#FBF6EA", color: T.warning, label: "Pending" };
+  };
 
   const addNote = async () => {
     if (!newNote.trim()) return;
@@ -1014,6 +1075,32 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           <EditRow label="Status"           k="status" options={CONFIG.statuses} />
           <EditRow label="Crew"             k="crew"   options={["", ...CONFIG.crews]} />
         </div>
+
+        {/* Invoices */}
+        {invoices.length > 0 && (
+          <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
+            <div style={{ background: T.steel, padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="invoice" size={14} /> Invoices</div>
+            </div>
+            {invoices.map(inv => {
+              const st = invStatusStyle(inv.status);
+              return (
+                <div key={inv.id} style={{ padding: "12px 16px", borderBottom: "1px solid " + T.cardBorder }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontWeight: 900, fontSize: 16, color: T.steel }}>{fmt$((inv.amount_cents || 0) / 100)}</div>
+                    <span style={{ background: st.bg, color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 11, fontWeight: 800 }}>{st.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: T.muted, marginTop: 3 }}>{(inv.created_at || "").slice(0, 10)}</div>
+                  <div style={{ display: "flex", gap: 12, marginTop: 8, alignItems: "center" }}>
+                    {inv.pdf_url && <a href={inv.pdf_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: T.success, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="invoice" size={14} /> View PDF</a>}
+                    {inv.hosted_url && inv.status !== "paid" && <a href={inv.hosted_url} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: T.gold, fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="card" size={14} /> Pay page</a>}
+                    <button onClick={() => deleteInvoice(inv)} style={{ marginLeft: "auto", background: "none", border: "none", color: T.danger, cursor: "pointer", padding: 4, display: "inline-flex", alignItems: "center" }}><Icon name="trash" size={15} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Notes History */}
         <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
