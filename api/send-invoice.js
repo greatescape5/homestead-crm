@@ -13,9 +13,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { userId, customerEmail, customerName, items, taxRate, dueDays, memo, jobId } = req.body;
+    const { userId, customerEmail, customerName, items, taxRate, memo, jobId } = req.body;
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
-    if (!customerEmail) return res.status(400).json({ error: 'Customer email is required to send an invoice' });
     if (!items || !items.length) return res.status(400).json({ error: 'No line items' });
 
     // Get the connected account
@@ -28,70 +27,71 @@ export default async function handler(req, res) {
     if (!acct?.stripe_account_id || !acct.onboarded) {
       return res.status(400).json({ error: 'Stripe account not connected or onboarding incomplete' });
     }
-
     const connectedAccount = acct.stripe_account_id;
-    const stripeOpts = { stripeAccount: connectedAccount };
 
-    // Compute subtotal in cents for the application fee
+    // Build line items
+    const line_items = items
+      .filter(it => (Number(it.qty) || 0) * (Number(it.rate) || 0) > 0)
+      .map(it => ({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: it.desc || 'Service' },
+          unit_amount: Math.round((Number(it.rate) || 0) * 100),
+        },
+        quantity: Number(it.qty) || 1,
+      }));
+
+    if (!line_items.length) return res.status(400).json({ error: 'Invoice total must be greater than $0' });
+
     const subtotalCents = items.reduce((s, it) => s + Math.round((Number(it.qty) || 0) * (Number(it.rate) || 0) * 100), 0);
     const taxPct = Number(taxRate) || 0;
-    const totalCents = Math.round(subtotalCents * (1 + taxPct / 100));
-    const feeCents = Math.round(totalCents * (PLATFORM_FEE_PERCENT / 100));
+    const taxCents = Math.round(subtotalCents * taxPct / 100);
 
-    // 1. Create (or reuse) a customer on the connected account
-    const customer = await stripe.customers.create({
-      email: customerEmail,
-      name: customerName || undefined,
-    }, stripeOpts);
-
-    // 2. Create invoice items
-    for (const it of items) {
-      const amountCents = Math.round((Number(it.qty) || 0) * (Number(it.rate) || 0) * 100);
-      if (amountCents <= 0) continue;
-      await stripe.invoiceItems.create({
-        customer: customer.id,
-        amount: amountCents,
-        currency: 'usd',
-        description: it.desc || 'Service',
-      }, stripeOpts);
+    if (taxCents > 0) {
+      line_items.push({
+        price_data: {
+          currency: 'usd',
+          product_data: { name: `Tax (${taxPct}%)` },
+          unit_amount: taxCents,
+        },
+        quantity: 1,
+      });
     }
 
-    // 3. Create the invoice with the platform fee applied
-    const invoice = await stripe.invoices.create({
-      customer: customer.id,
-      collection_method: 'send_invoice',
-      days_until_due: Number(dueDays) || 30,
-      description: memo || undefined,
-      default_tax_rates: [],
-      application_fee_amount: feeCents > 0 ? feeCents : undefined,
-    }, stripeOpts);
+    const totalCents = subtotalCents + taxCents;
+    const feeCents = Math.round(totalCents * (PLATFORM_FEE_PERCENT / 100));
 
-    // 4. Finalize and send it (Stripe emails the customer)
-    await stripe.invoices.finalizeInvoice(invoice.id, stripeOpts);
-    const sent = await stripe.invoices.sendInvoice(invoice.id, stripeOpts);
+    // Create a Checkout Session as a DESTINATION CHARGE:
+    // customer pays the platform, money is transferred to the connected account,
+    // minus our application fee. This is the supported pattern for Express + fee.
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items,
+      payment_intent_data: {
+        application_fee_amount: feeCents > 0 ? feeCents : undefined,
+        transfer_data: { destination: connectedAccount },
+        description: memo || undefined,
+      },
+      customer_email: customerEmail || undefined,
+      success_url: 'https://trackdcrm.com/?paid=1',
+      cancel_url: 'https://trackdcrm.com/',
+    });
 
-    // 5. Record in Supabase
+    // Record for the contractor's paper trail
     await supabase.from('invoices').insert([{
       user_id: userId,
       job_id: jobId || null,
-      stripe_invoice_id: sent.id,
+      stripe_invoice_id: session.id,
       customer_name: customerName,
       customer_email: customerEmail,
       amount_cents: totalCents,
-      status: sent.status, // 'open'
-      hosted_url: sent.hosted_invoice_url,
-      pdf_url: sent.invoice_pdf,
+      status: 'pending',
+      hosted_url: session.url,
     }]);
 
-    return res.status(200).json({
-      ok: true,
-      invoiceId: sent.id,
-      hostedUrl: sent.hosted_invoice_url,
-      pdfUrl: sent.invoice_pdf,
-      status: sent.status,
-    });
+    return res.status(200).json({ ok: true, paymentUrl: session.url, amountCents: totalCents });
   } catch (err) {
-    console.error('Send invoice error:', err);
+    console.error('Create payment link error:', err);
     return res.status(500).json({ error: err.message });
   }
 }
