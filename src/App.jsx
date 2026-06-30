@@ -497,9 +497,9 @@ function JobList({ jobs, onSelect }) {
       <div style={{ padding: "14px 16px 0" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs, contacts…"
-            style={{ flex: 3, minWidth: 0, padding: "11px 14px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.card, boxSizing: "border-box", outline: "none" }} />
+            style={{ flex: 2, minWidth: 0, padding: "11px 14px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.card, boxSizing: "border-box", outline: "none" }} />
           <select value={sort} onChange={e => setSort(e.target.value)}
-            style={{ flex: 1, minWidth: 0, padding: "11px 6px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 12, fontWeight: 700, background: T.card, color: T.steel, boxSizing: "border-box", outline: "none", cursor: "pointer" }}>
+            style={{ flex: 1, minWidth: 0, padding: "11px 8px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, fontWeight: 700, background: T.card, color: T.steel, boxSizing: "border-box", outline: "none", cursor: "pointer" }}>
             {sortOptions.map(o => <option key={o.v} value={o.v}>{o.label}</option>)}
           </select>
         </div>
@@ -945,8 +945,10 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
 
   const startEdit = (k, currentVal) => { setEditingField(k); setDraft(currentVal == null ? "" : String(currentVal)); };
   const cancelEdit = () => { setEditingField(null); setDraft(""); };
+  const CAP_FIELDS = ["company", "contact", "job_site"];
   const confirmEdit = (k) => {
-    const updated = { ...form, [k]: draft };
+    const value = CAP_FIELDS.includes(k) ? titleCase(draft) : draft;
+    const updated = { ...form, [k]: value };
     setForm(updated);
     setEditingField(null);
     setDraft("");
@@ -966,7 +968,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {options
               ? <select value={draft} onChange={e => setDraft(e.target.value)} style={{ ...selStyle, flex: 1 }} autoFocus>{options.map(o => <option key={o} value={o}>{o || "—"}</option>)}</select>
-              : <input type={inputType} value={draft} onChange={e => setDraft(e.target.value)} autoComplete={autoComplete || "on"} autoFocus style={{ ...inpStyle, flex: 1 }} />
+              : <input type={inputType} value={draft} onChange={e => setDraft(["company","contact","job_site"].includes(k) ? titleCase(e.target.value) : e.target.value)} autoComplete={autoComplete || "on"} autoFocus style={{ ...inpStyle, flex: 1 }} />
             }
             <button onClick={() => confirmEdit(k)} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 8, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="check" size={18} /></button>
             <button onClick={cancelEdit} style={{ background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 8, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="close" size={18} /></button>
