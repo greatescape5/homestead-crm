@@ -499,6 +499,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
     company: job?.company || "",
     contact: job?.contact || "",
     email: "",
+    phone: job?.phone || "",
     street: job?.job_site || "",
     town: "",
   });
@@ -540,11 +541,9 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
   const total = subtotal + tax;
 
   const sendInvoice = async () => {
-    if (!client.email) { alert("Enter the customer's email to send a payable invoice."); return; }
     if (total <= 0) { alert("Invoice total must be greater than $0."); return; }
     setSending(true);
     try {
-      const dueDays = Math.max(1, Math.round((new Date(dueDate) - new Date()) / 86400000)) || 30;
       const res = await fetch("/api/send-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -554,21 +553,29 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
           customerName: client.contact || client.company,
           items,
           taxRate,
-          dueDays,
           memo: notes,
           jobId: job?.id || null,
         }),
       });
       const data = await res.json();
       if (data.ok) {
-        setSentInfo({ hostedUrl: data.hostedUrl, pdfUrl: data.pdfUrl });
+        setSentInfo({ paymentUrl: data.paymentUrl });
       } else {
-        alert("Could not send: " + (data.error || "unknown error"));
+        alert("Could not create payment link: " + (data.error || "unknown error"));
       }
     } catch (e) {
-      alert("Could not send invoice. Try again.");
+      alert("Could not create payment link. Try again.");
     }
     setSending(false);
+  };
+
+  const copyLink = () => {
+    if (sentInfo?.paymentUrl) {
+      navigator.clipboard?.writeText(sentInfo.paymentUrl).then(
+        () => alert("Payment link copied"),
+        () => {}
+      );
+    }
   };
 
   const generatePDF = async () => {
@@ -793,15 +800,19 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
 
         {sentInfo ? (
           <div style={{ background: "#EBF5EE", border: "1px solid #3A8A56", borderRadius: 12, padding: 16, marginBottom: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.success, fontWeight: 800, fontSize: 15, marginBottom: 6 }}>
-              <Icon name="check" size={18} /> Invoice Sent
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.success, fontWeight: 800, fontSize: 15, marginBottom: 8 }}>
+              <Icon name="check" size={18} /> Payment Link Ready
             </div>
-            <div style={{ fontSize: 13, color: T.steel, lineHeight: 1.5 }}>{client.contact || client.company} was emailed a payable invoice at {client.email}.</div>
-            {sentInfo.hostedUrl && <a href={sentInfo.hostedUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 13, color: T.success, fontWeight: 700 }}>View payment page →</a>}
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 8, wordBreak: "break-all", background: "#fff", border: "1px solid " + T.cardBorder, borderRadius: 8, padding: "8px 10px" }}>{sentInfo.paymentUrl}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button onClick={copyLink} style={{ flex: 1, minWidth: 90, background: T.steel, color: T.gold, border: "none", borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>Copy Link</button>
+              <a href={`sms:${client.phone || ""}?&body=${encodeURIComponent("Here's your invoice from " + CONFIG.companyName + ": " + sentInfo.paymentUrl)}`} style={{ flex: 1, minWidth: 90, background: T.gold, color: T.steel, borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center" }}>Text</a>
+              <a href={`mailto:${client.email || ""}?subject=${encodeURIComponent("Invoice from " + CONFIG.companyName)}&body=${encodeURIComponent("Here's your invoice. Pay securely here: " + sentInfo.paymentUrl)}`} style={{ flex: 1, minWidth: 90, background: T.gold, color: T.steel, borderRadius: 8, padding: "10px", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center" }}>Email</a>
+            </div>
           </div>
         ) : (
           <button onClick={sendInvoice} disabled={sending} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: sending ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            {sending ? "Sending..." : <><Icon name="message" size={18} /> Send Payable Invoice</>}
+            {sending ? "Creating..." : <><Icon name="card" size={18} /> Create Payment Link</>}
           </button>
         )}
 
