@@ -282,6 +282,7 @@ function Login() {
 function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
   const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
+  const activeJobs = jobs.filter(j => j.status === "Active");
   const openLeads = jobs.filter(j => ["Lead", "Bidding"].includes(j.status)).length;
   const nonClosed = jobs.filter(j => !["Complete", "Invoiced"].includes(j.status));
   const overdue = nonClosed.filter(j => j.follow_up && j.follow_up < today).length;
@@ -357,6 +358,27 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
             </div>
           ))}
         </div>
+
+        {/* Active Jobs */}
+        {activeJobs.length > 0 && (
+          <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
+            <div style={{ background: T.steel, padding: "11px 16px", borderBottom: "2px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="jobs" size={14} /> Active Jobs</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: T.mutedLight }}>{activeJobs.length}</div>
+            </div>
+            {activeJobs.map(j => (
+              <div key={j.id} onClick={() => onJobSelect(j)} style={{ padding: "12px 16px", borderBottom: "1px solid " + T.cardBorder, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: T.steel }}>{j.company}</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Icon name="pin" size={11} /> {j.job_site || "No site set"}{j.crew ? " · " + j.crew : ""}
+                  </div>
+                </div>
+                <div style={{ fontWeight: 900, color: T.gold, fontSize: 15 }}>{fmt$(j.bid)}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Condensed secondary revenue card */}
         <div style={{ background: T.card, borderRadius: 12, padding: "14px 16px", marginBottom: 14, border: "1px solid " + T.cardBorder }}>
@@ -590,7 +612,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   const inp = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid " + T.cardBorder, fontSize: 14, boxSizing: "border-box", outline: "none", background: "#fff" };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 300, overflowY: "auto" }}>
+    <div style={{ position: "fixed", top: 0, bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, background: T.bg, zIndex: 300, overflowY: "auto" }}>
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
         <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="back" size={18} /> <span style={{ fontSize: 13, fontWeight: 700 }}>Back</span></button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Create Invoice</div>
