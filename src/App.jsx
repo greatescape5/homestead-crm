@@ -65,6 +65,8 @@ function Icon({ name, size = 20, stroke = 2, style }) {
     case "clock": return <svg {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
     case "back": return <svg {...p}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>;
     case "plus": return <svg {...p}><path d="M12 5v14M5 12h14"/></svg>;
+    case "pencil": return <svg {...p}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>;
+    case "close": return <svg {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>;
     default: return null;
   }
 }
@@ -734,13 +736,13 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
 
 // ─── JOB DETAIL WITH NOTES HISTORY ───────────────────────────────────────────
 function JobDetail({ job, onBack, onSave, onDelete, userId }) {
-  const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...job });
+  const [editingField, setEditingField] = useState(null); // which field key is being edited
+  const [draft, setDraft] = useState("");                  // temp value while editing
   const [notes, setNotes] = useState([]);
   const [newNote, setNewNote] = useState("");
   const [loadingNotes, setLoadingNotes] = useState(true);
   const [showInvoice, setShowInvoice] = useState(false);
-  const setF = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   useEffect(() => {
     supabase.from("job_notes").select("*").eq("job_id", job.id).order("created_at", { ascending: false })
@@ -758,10 +760,47 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
     if (!error) setNotes(n => n.filter(note => note.id !== id));
   };
 
-  const handleSave = () => { onSave(form); setEditing(false); };
+  const startEdit = (k, currentVal) => { setEditingField(k); setDraft(currentVal == null ? "" : String(currentVal)); };
+  const cancelEdit = () => { setEditingField(null); setDraft(""); };
+  const confirmEdit = (k) => {
+    const updated = { ...form, [k]: draft };
+    setForm(updated);
+    setEditingField(null);
+    setDraft("");
+    onSave(updated); // persist immediately
+  };
 
   const rowDiv = { paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid " + T.cardBorder };
   const rowLbl = { fontSize: 10, fontWeight: 800, color: T.mutedLight, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5, display: "block" };
+
+  // Inline-editable row. `display` is what shows when not editing; `inputType` drives the editor.
+  const EditRow = ({ label, k, inputType = "text", options = null, autoComplete, displayVal, valColor, valWeight }) => {
+    const isEditing = editingField === k;
+    return (
+      <div style={rowDiv}>
+        <label style={rowLbl}>{label}</label>
+        {isEditing ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {options
+              ? <select value={draft} onChange={e => setDraft(e.target.value)} style={{ ...selStyle, flex: 1 }} autoFocus>{options.map(o => <option key={o} value={o}>{o || "—"}</option>)}</select>
+              : <input type={inputType} value={draft} onChange={e => setDraft(e.target.value)} autoComplete={autoComplete || "on"} autoFocus style={{ ...inpStyle, flex: 1 }} />
+            }
+            <button onClick={() => confirmEdit(k)} style={{ background: T.success, color: "#fff", border: "none", borderRadius: 8, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="check" size={18} /></button>
+            <button onClick={cancelEdit} style={{ background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 8, width: 38, height: 38, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icon name="close" size={18} /></button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 15, color: valColor || T.steel, fontWeight: valWeight || 500, flex: 1 }}>{displayVal != null ? displayVal : (form[k] || "—")}</div>
+            <button onClick={() => startEdit(k, form[k])} style={{ background: "none", border: "none", color: T.mutedLight, cursor: "pointer", padding: 4, flexShrink: 0 }} title={"Edit " + label}><Icon name="pencil" size={16} /></button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const fmtTimeDisplay = form.follow_up_time
+    ? (() => { const [h,m] = form.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })()
+    : "8:00 AM (default)";
 
   return (
     <div style={{ paddingBottom: 40 }}>
@@ -773,75 +812,22 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
 
       <div style={{ padding: "16px 16px 0" }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-          {!editing
-            ? <button onClick={() => setEditing(true)} style={{ flex: 1, background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>Edit Job</button>
-            : <>
-                <button onClick={handleSave} style={{ flex: 2, background: T.success, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14 }}>Save Changes</button>
-                <button onClick={() => { setForm({ ...job }); setEditing(false); }} style={{ flex: 1, background: T.bg, color: T.muted, border: "1px solid " + T.cardBorder, borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Cancel</button>
-              </>
-          }
+          <button onClick={() => setShowInvoice(true)} style={{ flex: 1, background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}><Icon name="invoice" size={16} /> Create Invoice</button>
           <a href={"tel:" + job.phone} style={{ background: T.gold, color: T.steel, borderRadius: 10, padding: "12px 16px", textDecoration: "none", display: "flex", alignItems: "center" }}><Icon name="phone" size={20} /></a>
           <a href={"sms:" + job.phone} style={{ background: T.steelMid, color: T.white, borderRadius: 10, padding: "12px 16px", textDecoration: "none", display: "flex", alignItems: "center" }}><Icon name="message" size={20} /></a>
         </div>
 
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 16px 2px", border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
-          {[
-            { label: "Company",    k: "company",   type: "text" },
-            { label: "Contact",    k: "contact",   type: "text" },
-            { label: "Phone",      k: "phone",     type: "tel" },
-            { label: "Job Site Address", k: "job_site",  type: "text", autoComplete: "off" },
-            { label: "Bid Amount", k: "bid",       type: "number" },
-          ].map(({ label, k, type, autoComplete }) => (
-            <div key={k} style={rowDiv}>
-              <label style={rowLbl}>{label}</label>
-              {editing
-                ? <input type={type} value={form[k] || ""} onChange={setF(k)} autoComplete={autoComplete || "on"} style={{ ...inpStyle }} />
-                : <div style={{ fontSize: 15, color: k === "bid" ? T.gold : T.steel, fontWeight: k === "bid" ? 900 : 500 }}>{k === "bid" ? fmt$(form[k]) : form[k] || "—"}</div>
-              }
-            </div>
-          ))}
-
-          <div style={rowDiv}>
-            <label style={rowLbl}>Follow-up Date</label>
-            {editing
-              ? <input type="date" value={form.follow_up || ""} onChange={setF("follow_up")} style={{ ...inpStyle }} />
-              : <div style={{ fontSize: 15, color: T.steel }}>{form.follow_up || "—"}</div>
-            }
-          </div>
-          <div style={rowDiv}>
-            <label style={rowLbl}>Follow-up Time <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— defaults to 8:00 AM</span></label>
-            {editing
-              ? <input type="time" value={form.follow_up_time || ""} onChange={setF("follow_up_time")} style={{ ...inpStyle }} />
-              : <div style={{ fontSize: 15, color: T.steel }}>{form.follow_up_time ? (() => { const [h,m] = form.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })() : "8:00 AM (default)"}</div>
-            }
-          </div>
-
-          {/* Job Type select */}
-          <div style={rowDiv}>
-            <label style={rowLbl}>Job Type</label>
-            {editing
-              ? <select value={form.type || ""} onChange={setF("type")} style={selStyle}>{CONFIG.jobTypes.map(o => <option key={o} value={o}>{o}</option>)}</select>
-              : <div style={{ fontSize: 15, color: T.steel }}>{form.type || "—"}</div>
-            }
-          </div>
-
-          {/* Status select */}
-          <div style={rowDiv}>
-            <label style={rowLbl}>Status</label>
-            {editing
-              ? <select value={form.status || ""} onChange={setF("status")} style={selStyle}>{CONFIG.statuses.map(o => <option key={o} value={o}>{o}</option>)}</select>
-              : <div style={{ fontSize: 15, color: T.steel }}>{form.status || "—"}</div>
-            }
-          </div>
-
-          {/* Crew select */}
-          <div style={rowDiv}>
-            <label style={rowLbl}>Crew</label>
-            {editing
-              ? <select value={form.crew || ""} onChange={setF("crew")} style={selStyle}>{["", ...CONFIG.crews].map(o => <option key={o} value={o}>{o || "—"}</option>)}</select>
-              : <div style={{ fontSize: 15, color: T.steel }}>{form.crew || "—"}</div>
-            }
-          </div>
+          <EditRow label="Company"          k="company" />
+          <EditRow label="Contact"          k="contact" />
+          <EditRow label="Phone"            k="phone" inputType="tel" />
+          <EditRow label="Job Site Address" k="job_site" autoComplete="off" />
+          <EditRow label="Bid Amount"       k="bid" inputType="number" displayVal={fmt$(form.bid)} valColor={T.gold} valWeight={900} />
+          <EditRow label="Follow-up Date"   k="follow_up" inputType="date" />
+          <EditRow label="Follow-up Time"   k="follow_up_time" inputType="time" displayVal={fmtTimeDisplay} />
+          <EditRow label="Job Type"         k="type"   options={CONFIG.jobTypes} />
+          <EditRow label="Status"           k="status" options={CONFIG.statuses} />
+          <EditRow label="Crew"             k="crew"   options={["", ...CONFIG.crews]} />
         </div>
 
         {/* Notes History */}
@@ -873,16 +859,6 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
             ))}
           </div>
         </div>
-
-        {editing && (
-          <button onClick={handleSave} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10 }}>
-            Save Changes
-          </button>
-        )}
-
-        <button onClick={() => setShowInvoice(true)} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          <Icon name="invoice" size={18} /> Create Invoice
-        </button>
 
         <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, marginBottom: 40 }}>
           Delete Job
