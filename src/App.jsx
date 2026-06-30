@@ -492,12 +492,13 @@ function JobList({ jobs, onSelect }) {
 }
 
 // ─── INVOICE BUILDER ──────────────────────────────────────────────────────────
-function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
+function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
   useSwipeBack(onClose);
   const [invoiceNum] = useState("INV-" + Date.now().toString().slice(-6));
   const [client, setClient] = useState({
     company: job?.company || "",
     contact: job?.contact || "",
+    email: "",
     street: job?.job_site || "",
     town: "",
   });
@@ -512,6 +513,8 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
     return d.toISOString().split("T")[0];
   });
   const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentInfo, setSentInfo] = useState(null);
 
   // Autocomplete: filter existing jobs by what's typed
   const suggestions = standalone && client.company.length > 0
@@ -522,7 +525,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
     : [];
 
   const pickSuggestion = (j) => {
-    setClient({ company: j.company || "", contact: j.contact || "", street: j.job_site || "", town: "" });
+    setClient(c => ({ ...c, company: j.company || "", contact: j.contact || "", street: j.job_site || "" }));
     setShowSuggest(false);
   };
 
@@ -535,6 +538,38 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   const subtotal = items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
   const tax = subtotal * (Number(taxRate) || 0) / 100;
   const total = subtotal + tax;
+
+  const sendInvoice = async () => {
+    if (!client.email) { alert("Enter the customer's email to send a payable invoice."); return; }
+    if (total <= 0) { alert("Invoice total must be greater than $0."); return; }
+    setSending(true);
+    try {
+      const dueDays = Math.max(1, Math.round((new Date(dueDate) - new Date()) / 86400000)) || 30;
+      const res = await fetch("/api/send-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          customerEmail: client.email,
+          customerName: client.contact || client.company,
+          items,
+          taxRate,
+          dueDays,
+          memo: notes,
+          jobId: job?.id || null,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setSentInfo({ hostedUrl: data.hostedUrl, pdfUrl: data.pdfUrl });
+      } else {
+        alert("Could not send: " + (data.error || "unknown error"));
+      }
+    } catch (e) {
+      alert("Could not send invoice. Try again.");
+    }
+    setSending(false);
+  };
 
   const generatePDF = async () => {
     setGenerating(true);
@@ -678,6 +713,10 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
             <input value={client.contact} onChange={e => setClient({ ...client, contact: e.target.value })} placeholder="Contact person" autoComplete="off" style={inp} />
           </div>
           <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>Email <span style={{ color: T.mutedLight, fontWeight: 400, textTransform: "none", fontSize: 11 }}>— required to send invoice</span></label>
+            <input type="email" value={client.email} onChange={e => setClient({ ...client, email: e.target.value })} placeholder="customer@email.com" autoComplete="off" style={inp} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
             <label style={lbl}>Street Address</label>
             <input value={client.street} onChange={e => setClient({ ...client, street: e.target.value })} placeholder="1234 Timber Ridge Rd" autoComplete="off" style={inp} />
           </div>
@@ -752,10 +791,24 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
           </div>
         </div>
 
+        {sentInfo ? (
+          <div style={{ background: "#EBF5EE", border: "1px solid #3A8A56", borderRadius: 12, padding: 16, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.success, fontWeight: 800, fontSize: 15, marginBottom: 6 }}>
+              <Icon name="check" size={18} /> Invoice Sent
+            </div>
+            <div style={{ fontSize: 13, color: T.steel, lineHeight: 1.5 }}>{client.contact || client.company} was emailed a payable invoice at {client.email}.</div>
+            {sentInfo.hostedUrl && <a href={sentInfo.hostedUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, fontSize: 13, color: T.success, fontWeight: 700 }}>View payment page →</a>}
+          </div>
+        ) : (
+          <button onClick={sendInvoice} disabled={sending} style={{ width: "100%", background: T.success, color: "#fff", border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: sending ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {sending ? "Sending..." : <><Icon name="message" size={18} /> Send Payable Invoice</>}
+          </button>
+        )}
+
         <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
           {generating ? "Generating..." : <><Icon name="invoice" size={18} /> Download PDF</>}
         </button>
-        <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>Payment collection via Stripe coming soon</div>
+        <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>A 0.5% platform fee applies to paid invoices.</div>
       </div>
     </div>
   );
@@ -894,7 +947,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           Delete Job
         </button>
       </div>
-      {showInvoice && <InvoiceBuilder job={job} onClose={() => setShowInvoice(false)} />}
+      {showInvoice && <InvoiceBuilder job={job} userId={userId} onClose={() => setShowInvoice(false)} />}
     </div>
   );
 }
@@ -1044,7 +1097,7 @@ function PaymentsScreen({ onBack, userId, userEmail }) {
   };
 
   return (
-    <div style={{ minHeight: "100dvh", background: T.bg }}>
+    <div style={{ minHeight: "100dvh", background: T.bg, paddingBottom: 90 }}>
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
         <button onClick={onBack} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="back" size={15} /> Back</button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Payments</div>
@@ -1156,9 +1209,10 @@ export default function App() {
     <div style={root}>
       {toast && <Toast msg={toast.msg} type={toast.type} />}
       {showQuickAdd && <QuickAdd onSave={handleQuickAdd} onClose={() => setShowQuickAdd(false)} userId={session.user.id} />}
-      {showStandaloneInvoice && <InvoiceBuilder job={null} standalone={true} allJobs={jobs} onClose={() => setShowStandaloneInvoice(false)} />}
-      {showPayments && <PaymentsScreen onBack={() => setShowPayments(false)} userId={session.user.id} userEmail={session.user.email} />}
-      {selected ? (
+      {showStandaloneInvoice && <InvoiceBuilder job={null} standalone={true} allJobs={jobs} userId={session.user.id} onClose={() => setShowStandaloneInvoice(false)} />}
+      {showPayments ? (
+        <PaymentsScreen onBack={() => setShowPayments(false)} userId={session.user.id} userEmail={session.user.email} />
+      ) : selected ? (
         <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} userId={session.user.id} />
       ) : (
         <>
@@ -1168,7 +1222,7 @@ export default function App() {
           {tab === "followups" && <FollowUps jobs={jobs} onSelect={setSelected} />}
         </>
       )}
-      {!selected && <BottomNav tab={tab} setTab={setTab} onCreateInvoice={() => setShowStandaloneInvoice(true)} />}
+      {!selected && <BottomNav tab={tab} setTab={(t) => { setShowPayments(false); setTab(t); }} onCreateInvoice={() => setShowStandaloneInvoice(true)} />}
     </div>
   );
 }
