@@ -28,16 +28,23 @@
         } catch(e) {}
       }
 
-      // Must be global so onclick can reach it
+      // Must be global so the button handler can reach it
       window.enablePush = function() {
-        window.OneSignalDeferred.push(async function(OneSignal) {
-          try {
-            await OneSignal.Notifications.requestPermission();
-            document.getElementById('notif-banner').style.display = 'none';
-          } catch(e) {
-            alert('Could not enable notifications: ' + (e && e.message ? e.message : e));
+        // iOS requires the permission call to happen synchronously inside the tap.
+        // OneSignal v16 exposes Notifications on the global once initialized.
+        try {
+          if (window.OneSignal && window.OneSignal.Notifications && window.OneSignal.Notifications.requestPermission) {
+            window.OneSignal.Notifications.requestPermission();
+            setTimeout(function(){ var b=document.getElementById('notif-banner'); if(b) b.style.display='none'; }, 500);
+          } else {
+            window.OneSignalDeferred.push(function(OneSignal) {
+              OneSignal.Notifications.requestPermission();
+              var b=document.getElementById('notif-banner'); if(b) b.style.display='none';
+            });
           }
-        });
+        } catch(e) {
+          alert('Could not enable notifications: ' + (e && e.message ? e.message : e));
+        }
       };
 
       OneSignalDeferred.push(async function(OneSignal) {
@@ -124,8 +131,22 @@
   <body>
     <div id="notif-banner">
       <span>🔔 Enable notifications for follow-up reminders</span>
-      <button onclick="window.enablePush()">Turn On</button>
+      <button id="enable-push-btn">Turn On</button>
     </div>
     <div id="root"></div>
+    <script>
+      (function() {
+        var btn = document.getElementById('enable-push-btn');
+        if (btn) {
+          var handler = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.enablePush) window.enablePush();
+          };
+          btn.addEventListener('click', handler);
+          btn.addEventListener('touchend', handler);
+        }
+      })();
+    </script>
   </body>
 </html>
