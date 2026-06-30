@@ -314,62 +314,68 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
           <Icon name="phone" size={18} /> Quick Add Call-Back
         </button>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+        {/* HERO: Today's call-backs — the first thing you see */}
+        {callBacks.length > 0 ? (
+          <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 16 }}>
+            <div style={{ background: T.steel, padding: "11px 16px", borderBottom: "2px solid " + T.gold, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="phone" size={14} /> Today's Call-Backs</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: overdue > 0 ? "#F5A090" : T.mutedLight }}>{callBacks.length}</div>
+            </div>
+            {callBacks.map(j => {
+              const isOverdue = j.follow_up < today;
+              return (
+                <div key={j.id} onClick={() => onJobSelect(j)} style={{ padding: "12px 16px", borderBottom: "1px solid " + T.cardBorder, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: T.steel }}>{j.company}</div>
+                    <div style={{ fontSize: 12, color: isOverdue ? T.danger : T.muted, marginTop: 2, fontWeight: isOverdue ? 700 : 400, display: "flex", alignItems: "center", gap: 4 }}>
+                      {isOverdue && <Icon name="alert" size={11} />}{j.contact}{j.contact ? " · " : ""}{isOverdue ? "Overdue " + j.follow_up : "Today"}
+                    </div>
+                  </div>
+                  <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 8, padding: "8px 14px", fontWeight: 800, fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="phone" size={14} /> Call</a>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, padding: "20px 16px", marginBottom: 16, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+            <Icon name="check" size={28} stroke={2} style={{ color: T.success }} />
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.steel }}>You're all caught up</div>
+            <div style={{ fontSize: 12, color: T.muted }}>No call-backs due today.</div>
+          </div>
+        )}
+
+        {/* Slim stat strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 14 }}>
           {[
-            { label: "Active Jobs", value: active, color: T.success },
-            { label: "Open Leads", value: openLeads, color: "#3A68C8" },
-            { label: "Total Pipeline", value: fmt$(pipeline), color: T.steel },
-            { label: "Follow-ups Due", value: overdue + dueToday, color: overdue > 0 ? T.danger : T.warning },
+            { label: "Active", value: active, color: T.success },
+            { label: "Leads", value: openLeads, color: "#3A68C8" },
+            { label: "Due", value: overdue + dueToday, color: overdue > 0 ? T.danger : T.warning },
           ].map(c => (
-            <div key={c.label} style={{ background: T.card, borderRadius: 12, padding: 14, border: "1px solid " + T.cardBorder }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: c.color, lineHeight: 1 }}>{c.value}</div>
-              <div style={{ fontSize: 11, color: T.muted, marginTop: 4, fontWeight: 600 }}>{c.label}</div>
+            <div key={c.label} style={{ background: T.card, borderRadius: 10, padding: "10px 8px", border: "1px solid " + T.cardBorder, textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: c.color, lineHeight: 1 }}>{c.value}</div>
+              <div style={{ fontSize: 10, color: T.muted, marginTop: 3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{c.label}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ background: T.steel, borderRadius: 14, padding: 18, marginBottom: 14, border: "3px solid " + T.gold }}>
-          <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Revenue Overview</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        {/* Condensed secondary revenue card */}
+        <div style={{ background: T.card, borderRadius: 12, padding: "14px 16px", marginBottom: 14, border: "1px solid " + T.cardBorder }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontSize: 11, color: T.mutedLight }}>Total Pipeline</div>
-              <div style={{ fontSize: 30, fontWeight: 900, color: T.white, lineHeight: 1.1 }}>{fmt$(pipeline)}</div>
+              <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Pipeline</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: T.steel, lineHeight: 1.1, marginTop: 2 }}>{fmt$(pipeline)}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 11, color: T.mutedLight }}>Won / Active</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: T.gold }}>{fmt$(wonValue)}</div>
+              <div style={{ fontSize: 10, color: T.muted, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Won / Active</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: T.gold, marginTop: 2 }}>{fmt$(wonValue)}</div>
             </div>
           </div>
           {pipeline > 0 && (
-            <div style={{ marginTop: 14, display: "flex", gap: 4, height: 6, borderRadius: 3, overflow: "hidden" }}>
-              {statBreakdown.map(({ s, val }) => <div key={s} style={{ flex: val / pipeline, background: STATUS_CFG[s] ? STATUS_CFG[s].dot : T.muted, minWidth: val > 0 ? 4 : 0 }} />)}
+            <div style={{ marginTop: 12, display: "flex", gap: 3, height: 5, borderRadius: 3, overflow: "hidden" }}>
+              {statBreakdown.map(({ s, val }) => <div key={s} style={{ flex: val / pipeline, background: STATUS_CFG[s] ? STATUS_CFG[s].dot : T.muted, minWidth: val > 0 ? 3 : 0 }} />)}
             </div>
           )}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10 }}>
-            {statBreakdown.map(({ s, count, val }) => (
-              <div key={s} style={{ fontSize: 11, color: T.mutedLight }}>
-                <span style={{ color: STATUS_CFG[s] ? STATUS_CFG[s].dot : T.muted, fontWeight: 700 }}>● </span>{s} {count} · {fmt$(val)}
-              </div>
-            ))}
-          </div>
         </div>
-
-        {callBacks.length > 0 && (
-          <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
-            <div style={{ background: "#2A1A08", padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="alert" size={14} /> Call-Back Queue</div>
-            </div>
-            {callBacks.map(j => (
-              <div key={j.id} onClick={() => onJobSelect(j)} style={{ padding: "12px 16px", borderBottom: "1px solid " + T.cardBorder, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: T.steel }}>{j.company}</div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{j.contact} · {j.follow_up}</div>
-                </div>
-                <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 8, padding: "7px 12px", fontWeight: 800, fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="phone" size={14} /> Call</a>
-              </div>
-            ))}
-          </div>
-        )}
 
         {jobs.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.muted }}>
