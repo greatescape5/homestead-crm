@@ -45,6 +45,30 @@ const fmtFollowUp = (date, time) => {
   return `${date} at ${h12}:${m} ${ampm}`;
 };
 
+// ─── ICONS — clean monochrome line icons (inherit color via currentColor) ─────
+function Icon({ name, size = 20, stroke = 2, style }) {
+  const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: stroke, strokeLinecap: "round", strokeLinejoin: "round", style };
+  switch (name) {
+    case "dashboard": return <svg {...p}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>;
+    case "jobs": return <svg {...p}><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6.6 6.6a1.4 1.4 0 0 0 2 2l6.6-6.6a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2 2.5-2.5z"/></svg>;
+    case "calendar": return <svg {...p}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>;
+    case "invoice": return <svg {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg>;
+    case "bell": return <svg {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>;
+    case "bellOff": return <svg {...p}><path d="M13.7 21a2 2 0 0 1-3.4 0M18 8a6 6 0 0 0-9.3-5M5.3 5.3A6 6 0 0 0 6 8c0 7-3 9-3 9h13M1 1l22 22"/></svg>;
+    case "phone": return <svg {...p}><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>;
+    case "message": return <svg {...p}><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.5 8.5 0 0 1-3.9-.9L3 20l1.3-4a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 8.4-8.7h.5a8.5 8.5 0 0 1 8 8z"/></svg>;
+    case "trash": return <svg {...p}><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg>;
+    case "note": return <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>;
+    case "alert": return <svg {...p}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>;
+    case "pin": return <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+    case "check": return <svg {...p}><path d="M20 6 9 17l-5-5"/></svg>;
+    case "clock": return <svg {...p}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>;
+    case "back": return <svg {...p}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>;
+    case "plus": return <svg {...p}><path d="M12 5v14M5 12h14"/></svg>;
+    default: return null;
+  }
+}
+
 function Badge({ status }) {
   const c = STATUS_CFG[status] || STATUS_CFG.Lead;
   return (
@@ -77,11 +101,11 @@ function Header({ title, sub, right }) {
 
 function BottomNav({ tab, setTab, onCreateInvoice }) {
   const sides = [
-    { id: "dashboard", icon: "⊞", label: "Dashboard" },
-    { id: "jobs",      icon: "🔨", label: "Jobs" },
+    { id: "dashboard", icon: "dashboard", label: "Dashboard" },
+    { id: "jobs",      icon: "jobs", label: "Jobs" },
   ];
   const right = [
-    { id: "followups", icon: "📅", label: "Follow-ups" },
+    { id: "followups", icon: "calendar", label: "Follow-ups" },
   ];
   return (
     <nav style={{
@@ -94,10 +118,10 @@ function BottomNav({ tab, setTab, onCreateInvoice }) {
       {sides.map(t => (
         <button key={t.id} onClick={() => setTab(t.id)} style={{
           flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
-          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20,
+          alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
+          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight,
         }}>
-          <span style={{ lineHeight: 1 }}>{t.icon}</span>
+          <Icon name={t.icon} size={22} stroke={tab === t.id ? 2.4 : 2} />
           <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
         </button>
       ))}
@@ -106,20 +130,20 @@ function BottomNav({ tab, setTab, onCreateInvoice }) {
       <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 6 }}>
         <button onClick={() => setTab("add")} style={{
           width: 44, height: 44, borderRadius: "50%", border: "none", cursor: "pointer",
-          background: T.gold, color: T.steel, fontSize: 24, fontWeight: 900,
+          background: T.gold, color: T.steel,
           display: "flex", alignItems: "center", justifyContent: "center",
           marginTop: -22,
           boxShadow: "0 2px 12px " + T.gold + "99",
-        }}>+</button>
+        }}><Icon name="plus" size={24} stroke={2.6} /></button>
       </div>
 
       {right.map(t => (
         <button key={t.id} onClick={() => setTab(t.id)} style={{
           flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
-          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight, fontSize: 20,
+          alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
+          height: 60, background: "transparent", color: tab === t.id ? T.gold : T.mutedLight,
         }}>
-          <span style={{ lineHeight: 1 }}>{t.icon}</span>
+          <Icon name={t.icon} size={22} stroke={tab === t.id ? 2.4 : 2} />
           <span style={{ fontSize: 10, fontWeight: tab === t.id ? 700 : 500 }}>{t.label}</span>
         </button>
       ))}
@@ -127,10 +151,10 @@ function BottomNav({ tab, setTab, onCreateInvoice }) {
       {/* Create Invoice button filling right space */}
       <button onClick={onCreateInvoice} style={{
         flex: 1, border: "none", cursor: "pointer", display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0 0",
-        height: 60, background: "transparent", color: T.mutedLight, fontSize: 20,
+        alignItems: "center", justifyContent: "center", gap: 4, padding: "10px 0 0",
+        height: 60, background: "transparent", color: T.mutedLight,
       }}>
-        <span style={{ lineHeight: 1 }}>📄</span>
+        <Icon name="invoice" size={22} stroke={2} />
         <span style={{ fontSize: 10, fontWeight: 500 }}>Invoice</span>
       </button>
     </nav>
@@ -279,7 +303,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
 
       {(overdue > 0 || dueToday > 0) && (
         <div style={{ background: "#3A1A10", borderBottom: "2px solid " + T.gold, padding: "10px 18px", display: "flex", alignItems: "center", gap: 8 }}>
-          <span>🔔</span>
+          <Icon name="bell" size={16} style={{ color: "#F5D8A0" }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: "#F5D8A0" }}>{overdue > 0 && overdue + " overdue"}{overdue > 0 && dueToday > 0 && " · "}{dueToday > 0 && dueToday + " due today"}</span>
         </div>
       )}
@@ -287,7 +311,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
       <div style={{ padding: "16px 16px 0" }}>
         {/* Quick Add Button */}
         <button onClick={onQuickAdd} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 12, padding: "14px", fontWeight: 800, fontSize: 15, cursor: "pointer", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-          📞 Quick Add Call-Back
+          <Icon name="phone" size={18} /> Quick Add Call-Back
         </button>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
@@ -333,7 +357,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
         {callBacks.length > 0 && (
           <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
             <div style={{ background: "#2A1A08", padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase" }}>⚠️ Call-Back Queue</div>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="alert" size={14} /> Call-Back Queue</div>
             </div>
             {callBacks.map(j => (
               <div key={j.id} onClick={() => onJobSelect(j)} style={{ padding: "12px 16px", borderBottom: "1px solid " + T.cardBorder, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -341,7 +365,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
                   <div style={{ fontWeight: 700, fontSize: 14, color: T.steel }}>{j.company}</div>
                   <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{j.contact} · {j.follow_up}</div>
                 </div>
-                <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 8, padding: "7px 12px", fontWeight: 800, fontSize: 13, textDecoration: "none" }}>📞 Call</a>
+                <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 8, padding: "7px 12px", fontWeight: 800, fontSize: 13, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="phone" size={14} /> Call</a>
               </div>
             ))}
           </div>
@@ -349,7 +373,7 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
 
         {jobs.length === 0 && (
           <div style={{ textAlign: "center", padding: 40, color: T.muted }}>
-            <div style={{ fontSize: 36 }}>🔨</div>
+            <div style={{ display: "flex", justifyContent: "center", color: T.mutedLight }}><Icon name="jobs" size={36} stroke={1.5} /></div>
             <div style={{ marginTop: 8, fontSize: 14 }}>No jobs yet — tap + to add your first one.</div>
           </div>
         )}
@@ -369,14 +393,14 @@ function JobCard({ job, onClick }) {
         <div style={{ fontWeight: 800, fontSize: 15, color: T.steel, flex: 1 }}>{job.company}</div>
         <Badge status={job.status} />
       </div>
-      <div style={{ fontSize: 12, color: T.muted, marginTop: 5 }}>📍 {job.job_site || "No site set"}</div>
+      <div style={{ fontSize: 12, color: T.muted, marginTop: 5, display: "flex", alignItems: "center", gap: 5 }}><Icon name="pin" size={13} /> {job.job_site || "No site set"}</div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
         <div style={{ fontSize: 12, color: T.muted }}>{job.type || "—"}{job.crew ? " · " + job.crew : ""}</div>
         <div style={{ fontWeight: 900, color: T.gold, fontSize: 17 }}>{fmt$(job.bid)}</div>
       </div>
       {(overdue || dueToday) && (
-        <div style={{ marginTop: 10, background: overdue ? "#FBF0EE" : "#FBF6EA", border: "1px solid " + (overdue ? "#E0A090" : T.gold), borderRadius: 8, padding: "5px 10px", fontSize: 12, color: overdue ? T.danger : T.warning, fontWeight: 700 }}>
-          {overdue ? "⚠️ Follow-up overdue · " + job.follow_up : "📅 Follow-up today"}
+        <div style={{ marginTop: 10, background: overdue ? "#FBF0EE" : "#FBF6EA", border: "1px solid " + (overdue ? "#E0A090" : T.gold), borderRadius: 8, padding: "5px 10px", fontSize: 12, color: overdue ? T.danger : T.warning, fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+          {overdue ? <><Icon name="alert" size={13} /> Follow-up overdue · {job.follow_up}</> : <><Icon name="calendar" size={13} /> Follow-up today</>}
         </div>
       )}
       {job.notes && <div style={{ marginTop: 8, fontSize: 12, color: T.mutedLight, fontStyle: "italic" }}>"{job.notes.slice(0, 90)}{job.notes.length > 90 ? "…" : ""}"</div>}
@@ -404,7 +428,7 @@ function JobList({ jobs, onSelect }) {
         </div>
         <div style={{ fontSize: 11, color: T.mutedLight, marginBottom: 10, fontWeight: 600 }}>{filtered.length} {filtered.length === 1 ? "job" : "jobs"}</div>
         {filtered.length === 0
-          ? <div style={{ textAlign: "center", padding: 50, color: T.mutedLight }}><div style={{ fontSize: 36 }}>🔨</div><div style={{ marginTop: 8 }}>No jobs found</div></div>
+          ? <div style={{ textAlign: "center", padding: 50, color: T.mutedLight }}><div style={{ display: "flex", justifyContent: "center" }}><Icon name="jobs" size={36} stroke={1.5} /></div><div style={{ marginTop: 8 }}>No jobs found</div></div>
           : filtered.map(j => <JobCard key={j.id} job={j} onClick={onSelect} />)}
       </div>
     </div>
@@ -562,7 +586,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: T.bg, zIndex: 300, overflowY: "auto" }}>
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
-        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, fontSize: 18, fontWeight: 900, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}>← <span style={{ fontSize: 13, fontWeight: 700 }}>Back</span></button>
+        <button onClick={onClose} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="back" size={18} /> <span style={{ fontSize: 13, fontWeight: 700 }}>Back</span></button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Create Invoice</div>
         <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>{invoiceNum}{client.company ? " · " + client.company : ""}</div>
       </div>
@@ -631,7 +655,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
                   <div style={{ fontSize: 14, fontWeight: 800, color: T.gold, padding: "10px 0" }}>{fmt$((Number(it.qty) || 0) * (Number(it.rate) || 0))}</div>
                 </div>
                 {items.length > 1 && (
-                  <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, fontSize: 18, padding: 4 }}>🗑</button>
+                  <button onClick={() => removeItem(i)} style={{ background: "none", border: "none", cursor: "pointer", color: T.danger, padding: 4, display: "flex", alignItems: "center" }}><Icon name="trash" size={18} /></button>
                 )}
               </div>
             </div>
@@ -671,8 +695,8 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
           </div>
         </div>
 
-        <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1 }}>
-          {generating ? "Generating..." : "📄 Download PDF"}
+        <button onClick={generatePDF} disabled={generating} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 12, padding: 15, fontWeight: 900, fontSize: 16, cursor: "pointer", marginBottom: 10, opacity: generating ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          {generating ? "Generating..." : <><Icon name="invoice" size={18} /> Download PDF</>}
         </button>
         <div style={{ fontSize: 12, color: T.muted, textAlign: "center" }}>Payment collection via Stripe coming soon</div>
       </div>
@@ -714,7 +738,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
   return (
     <div style={{ paddingBottom: 40 }}>
       <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8 }}>← Back</button>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: T.mutedLight, fontSize: 13, cursor: "pointer", padding: 0, marginBottom: 8, display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="back" size={15} /> Back</button>
         <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>{job.company}</div>
         <div style={{ marginTop: 6 }}><Badge status={form.status} /></div>
       </div>
@@ -728,8 +752,8 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
                 <button onClick={() => { setForm({ ...job }); setEditing(false); }} style={{ flex: 1, background: T.bg, color: T.muted, border: "1px solid " + T.cardBorder, borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14 }}>Cancel</button>
               </>
           }
-          <a href={"tel:" + job.phone} style={{ background: T.gold, color: T.steel, borderRadius: 10, padding: "12px 16px", fontWeight: 900, fontSize: 20, textDecoration: "none", display: "flex", alignItems: "center" }}>📞</a>
-          <a href={"sms:" + job.phone} style={{ background: T.steelMid, color: T.white, borderRadius: 10, padding: "12px 16px", fontWeight: 900, fontSize: 20, textDecoration: "none", display: "flex", alignItems: "center" }}>💬</a>
+          <a href={"tel:" + job.phone} style={{ background: T.gold, color: T.steel, borderRadius: 10, padding: "12px 16px", textDecoration: "none", display: "flex", alignItems: "center" }}><Icon name="phone" size={20} /></a>
+          <a href={"sms:" + job.phone} style={{ background: T.steelMid, color: T.white, borderRadius: 10, padding: "12px 16px", textDecoration: "none", display: "flex", alignItems: "center" }}><Icon name="message" size={20} /></a>
         </div>
 
         <div style={{ background: T.card, borderRadius: 14, padding: "16px 16px 2px", border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
@@ -795,7 +819,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
         {/* Notes History */}
         <div style={{ background: T.card, borderRadius: 14, border: "1px solid " + T.cardBorder, overflow: "hidden", marginBottom: 14 }}>
           <div style={{ background: T.steel, padding: "10px 16px", borderBottom: "2px solid " + T.gold }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase" }}>📝 Notes History</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: 1, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><Icon name="note" size={14} /> Notes History</div>
           </div>
 
           <div style={{ padding: 14 }}>
@@ -816,7 +840,7 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
                   <div style={{ fontSize: 14, color: T.steel, lineHeight: 1.5 }}>{n.note}</div>
                   <div style={{ fontSize: 11, color: T.mutedLight, marginTop: 4 }}>{fmtTime(n.created_at)}</div>
                 </div>
-                <button onClick={() => { if (window.confirm("Delete this note?")) deleteNote(n.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.mutedLight, fontSize: 16, padding: "2px 4px", flexShrink: 0, lineHeight: 1 }} title="Delete note">🗑</button>
+                <button onClick={() => { if (window.confirm("Delete this note?")) deleteNote(n.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: T.mutedLight, padding: "2px 4px", flexShrink: 0, display: "flex", alignItems: "center" }} title="Delete note"><Icon name="trash" size={16} /></button>
               </div>
             ))}
           </div>
@@ -828,8 +852,8 @@ function JobDetail({ job, onBack, onSave, onDelete, userId }) {
           </button>
         )}
 
-        <button onClick={() => setShowInvoice(true)} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10 }}>
-          📄 Create Invoice
+        <button onClick={() => setShowInvoice(true)} style={{ width: "100%", background: T.steel, color: T.gold, border: "2px solid " + T.gold, borderRadius: 10, padding: 12, fontWeight: 800, cursor: "pointer", fontSize: 14, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          <Icon name="invoice" size={18} /> Create Invoice
         </button>
 
         <button onClick={() => { if (window.confirm("Delete this job?")) onDelete(job.id); }} style={{ width: "100%", background: "#FBF0EE", color: T.danger, border: "1px solid #E0A090", borderRadius: 10, padding: 12, fontWeight: 700, cursor: "pointer", fontSize: 14, marginBottom: 40 }}>
@@ -914,8 +938,8 @@ function FollowUps({ jobs, onSelect }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color }}>{j.follow_up}</div>
-            <div style={{ fontSize: 11, color: T.mutedLight }}>🕐 {j.follow_up_time ? (() => { const [h,m] = j.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })() : "8:00 AM"}</div>
-            <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 7, padding: "5px 10px", fontWeight: 800, fontSize: 12, textDecoration: "none" }}>📞</a>
+            <div style={{ fontSize: 11, color: T.mutedLight, display: "flex", alignItems: "center", gap: 4 }}><Icon name="clock" size={12} /> {j.follow_up_time ? (() => { const [h,m] = j.follow_up_time.split(":"); const hour = parseInt(h); return `${hour % 12 || 12}:${m} ${hour >= 12 ? "PM" : "AM"}`; })() : "8:00 AM"}</div>
+            <a href={"tel:" + j.phone} onClick={e => e.stopPropagation()} style={{ background: T.gold, color: T.steel, borderRadius: 7, padding: "6px 10px", textDecoration: "none", display: "flex", alignItems: "center" }}><Icon name="phone" size={14} /></a>
           </div>
         </div>
       ))}
@@ -931,7 +955,7 @@ function FollowUps({ jobs, onSelect }) {
         <Section title="Upcoming"  items={upcoming} color={T.success} accent={T.success} />
         {!overdue.length && !dueToday.length && !upcoming.length && (
           <div style={{ textAlign: "center", padding: 60, color: T.mutedLight }}>
-            <div style={{ fontSize: 40 }}>✅</div>
+            <div style={{ display: "flex", justifyContent: "center", color: T.success }}><Icon name="check" size={40} stroke={2.5} /></div>
             <div style={{ marginTop: 10, fontSize: 14 }}>All clear — no follow-ups scheduled.</div>
           </div>
         )}
