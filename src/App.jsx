@@ -99,6 +99,9 @@ function Icon({ name, size = 20, stroke = 2, style }) {
     case "plus": return <svg {...p}><path d="M12 5v14M5 12h14"/></svg>;
     case "pencil": return <svg {...p}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>;
     case "close": return <svg {...p}><path d="M18 6 6 18M6 6l12 12"/></svg>;
+    case "settings": return <svg {...p}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+    case "card": return <svg {...p}><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>;
+    case "external": return <svg {...p}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg>;
     default: return null;
   }
 }
@@ -301,7 +304,7 @@ function Login() {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
+function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId, onOpenSettings }) {
   const today = todayStr();
   const active = jobs.filter(j => j.status === "Active").length;
   const activeJobs = jobs.filter(j => j.status === "Active");
@@ -321,7 +324,10 @@ function Dashboard({ jobs, onJobSelect, onSignOut, onQuickAdd, userId }) {
           <div style={{ fontSize: 10, color: T.gold, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" }}>{CONFIG.companyName} · {CONFIG.companySubtitle}</div>
           <div style={{ fontSize: 20, fontWeight: 900, color: T.white, marginTop: 2 }}>Dashboard</div>
         </div>
-        <button onClick={onSignOut} style={{ background: "none", border: "1px solid #444", borderRadius: 8, color: T.mutedLight, fontSize: 11, padding: "5px 10px", cursor: "pointer", fontWeight: 600 }}>Sign Out</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={onOpenSettings} style={{ background: "none", border: "1px solid #444", borderRadius: 8, color: T.mutedLight, fontSize: 11, padding: "5px 9px", cursor: "pointer", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="settings" size={14} /> Payments</button>
+          <button onClick={onSignOut} style={{ background: "none", border: "1px solid #444", borderRadius: 8, color: T.mutedLight, fontSize: 11, padding: "5px 10px", cursor: "pointer", fontWeight: 600 }}>Sign Out</button>
+        </div>
       </div>
 
       {(overdue > 0 || dueToday > 0) && (
@@ -992,6 +998,103 @@ function FollowUps({ jobs, onSelect }) {
   );
 }
 
+// ─── PAYMENTS / STRIPE CONNECT SCREEN ─────────────────────────────────────────
+function PaymentsScreen({ onBack, userId, userEmail }) {
+  useSwipeBack(onBack);
+  const [status, setStatus] = useState("loading"); // loading | not_connected | pending | connected
+  const [working, setWorking] = useState(false);
+
+  const checkStatus = async () => {
+    try {
+      const res = await fetch("/api/stripe-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (!data.connected) setStatus("not_connected");
+      else if (data.onboarded) setStatus("connected");
+      else setStatus("pending");
+    } catch (e) {
+      setStatus("not_connected");
+    }
+  };
+
+  useEffect(() => { checkStatus(); }, []);
+
+  const startOnboarding = async () => {
+    setWorking(true);
+    try {
+      const res = await fetch("/api/stripe-connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, email: userEmail, returnUrl: window.location.href }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Could not start setup: " + (data.error || "unknown error"));
+        setWorking(false);
+      }
+    } catch (e) {
+      alert("Could not connect to Stripe. Try again.");
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100dvh", background: T.bg }}>
+      <div style={{ background: T.steel, paddingLeft: 16, paddingRight: 16, paddingBottom: 16, paddingTop: "calc(14px + env(safe-area-inset-top))", borderBottom: "3px solid " + T.gold }}>
+        <button onClick={onBack} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: T.gold, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: "6px 12px", marginBottom: 10, borderRadius: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="back" size={15} /> Back</button>
+        <div style={{ fontSize: 20, fontWeight: 900, color: T.white }}>Payments</div>
+        <div style={{ fontSize: 12, color: T.mutedLight, marginTop: 2 }}>Connect Stripe to send payable invoices.</div>
+      </div>
+
+      <div style={{ padding: 16 }}>
+        <div style={{ background: T.card, borderRadius: 14, padding: 20, border: "1px solid " + T.cardBorder, textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, color: status === "connected" ? T.success : T.gold }}>
+            <Icon name={status === "connected" ? "check" : "card"} size={40} stroke={1.8} />
+          </div>
+
+          {status === "loading" && <div style={{ color: T.muted, fontSize: 14 }}>Checking status…</div>}
+
+          {status === "not_connected" && (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 800, color: T.steel, marginBottom: 6 }}>Accept payments on invoices</div>
+              <div style={{ fontSize: 13, color: T.muted, marginBottom: 18, lineHeight: 1.5 }}>Connect your Stripe account so customers can pay invoices online. Payouts go straight to your bank.</div>
+              <button onClick={startOnboarding} disabled={working} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 10, padding: 14, fontWeight: 900, fontSize: 15, cursor: "pointer", opacity: working ? 0.7 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {working ? "Opening Stripe…" : <>Connect Stripe <Icon name="external" size={16} /></>}
+              </button>
+            </>
+          )}
+
+          {status === "pending" && (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 800, color: T.steel, marginBottom: 6 }}>Setup incomplete</div>
+              <div style={{ fontSize: 13, color: T.muted, marginBottom: 18, lineHeight: 1.5 }}>You started connecting but Stripe still needs a few details before you can accept payments.</div>
+              <button onClick={startOnboarding} disabled={working} style={{ width: "100%", background: T.gold, color: T.steel, border: "none", borderRadius: 10, padding: 14, fontWeight: 900, fontSize: 15, cursor: "pointer", opacity: working ? 0.7 : 1 }}>
+                {working ? "Opening Stripe…" : "Finish Setup"}
+              </button>
+            </>
+          )}
+
+          {status === "connected" && (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 800, color: T.success, marginBottom: 6 }}>Stripe Connected</div>
+              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>You're all set. Invoices you send can now be paid online, and payouts go to your bank.</div>
+            </>
+          )}
+        </div>
+
+        {status !== "loading" && status !== "connected" && (
+          <button onClick={checkStatus} style={{ width: "100%", background: "none", border: "none", color: T.muted, fontSize: 12, marginTop: 14, cursor: "pointer", textDecoration: "underline" }}>Refresh status</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1001,6 +1104,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showStandaloneInvoice, setShowStandaloneInvoice] = useState(false);
+  const [showPayments, setShowPayments] = useState(false);
 
   const showToast = (msg, type) => { setToast({ msg, type }); setTimeout(() => setToast(null), 2800); };
 
@@ -1053,11 +1157,12 @@ export default function App() {
       {toast && <Toast msg={toast.msg} type={toast.type} />}
       {showQuickAdd && <QuickAdd onSave={handleQuickAdd} onClose={() => setShowQuickAdd(false)} userId={session.user.id} />}
       {showStandaloneInvoice && <InvoiceBuilder job={null} standalone={true} allJobs={jobs} onClose={() => setShowStandaloneInvoice(false)} />}
+      {showPayments && <PaymentsScreen onBack={() => setShowPayments(false)} userId={session.user.id} userEmail={session.user.email} />}
       {selected ? (
         <JobDetail job={selected} onBack={() => setSelected(null)} onSave={handleSave} onDelete={handleDelete} userId={session.user.id} />
       ) : (
         <>
-          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} onQuickAdd={() => setShowQuickAdd(true)} userId={session.user.id} />}
+          {tab === "dashboard" && <Dashboard jobs={jobs} onJobSelect={setSelected} onSignOut={handleSignOut} onQuickAdd={() => setShowQuickAdd(true)} userId={session.user.id} onOpenSettings={() => setShowPayments(true)} />}
           {tab === "jobs"      && <JobList jobs={jobs} onSelect={setSelected} />}
           {tab === "add"       && <AddJob onSave={handleAdd} onCancel={() => setTab("jobs")} userId={session.user.id} />}
           {tab === "followups" && <FollowUps jobs={jobs} onSelect={setSelected} />}
