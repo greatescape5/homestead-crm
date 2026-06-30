@@ -18,15 +18,8 @@
       window.OneSignalDeferred = window.OneSignalDeferred || [];
 
       function showBannerIfNeeded() {
-        try {
-          var perm = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
-          var banner = document.getElementById('notif-banner');
-          if (banner && perm !== 'granted' && perm !== 'denied') {
-            banner.style.display = 'flex';
-          } else if (banner) {
-            banner.style.display = 'none';
-          }
-        } catch(e) {}
+        // Notifications paused for now — banner stays hidden
+        return;
       }
 
       // Must be global so the button handler can reach it
@@ -130,7 +123,7 @@
     </style>
   </head>
   <body>
-    <div id="notif-banner">
+    <div id="notif-banner" style="display:none !important;">
       <span>🔔 Enable notifications for follow-up reminders</span>
       <button id="enable-push-btn">Turn On</button>
     </div>
