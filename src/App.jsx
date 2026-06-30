@@ -417,7 +417,8 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
   const [client, setClient] = useState({
     company: job?.company || "",
     contact: job?.contact || "",
-    address: job?.job_site || "",
+    street: job?.job_site || "",
+    town: "",
   });
   const [showSuggest, setShowSuggest] = useState(false);
   const [items, setItems] = useState([
@@ -440,7 +441,7 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
     : [];
 
   const pickSuggestion = (j) => {
-    setClient({ company: j.company || "", contact: j.contact || "", address: j.job_site || "" });
+    setClient({ company: j.company || "", contact: j.contact || "", street: j.job_site || "", town: "" });
     setShowSuggest(false);
   };
 
@@ -491,7 +492,10 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
       doc.setFontSize(10);
       doc.text(client.company || "", 20, 57);
       if (client.contact) doc.text(client.contact, 20, 63);
-      if (client.address) doc.text(client.address, 20, 69);
+      let addrY = 69;
+      if (client.street) { doc.text(client.street, 20, addrY); addrY += 6; }
+      const cityLine = [client.town, "Idaho"].filter(Boolean).join(", ");
+      if (cityLine) doc.text(cityLine, 20, addrY);
 
       doc.setFontSize(10);
       doc.text("Date: " + todayStr(), 190, 57, { align: "right" });
@@ -592,9 +596,19 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs }) {
             <label style={lbl}>Contact Name</label>
             <input value={client.contact} onChange={e => setClient({ ...client, contact: e.target.value })} placeholder="Contact person" autoComplete="off" style={inp} />
           </div>
-          <div>
-            <label style={lbl}>Address</label>
-            <input value={client.address} onChange={e => setClient({ ...client, address: e.target.value })} placeholder="Job site / billing address" autoComplete="off" style={inp} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={lbl}>Street Address</label>
+            <input value={client.street} onChange={e => setClient({ ...client, street: e.target.value })} placeholder="1234 Timber Ridge Rd" autoComplete="off" style={inp} />
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 2 }}>
+              <label style={lbl}>Town</label>
+              <input value={client.town} onChange={e => setClient({ ...client, town: e.target.value })} placeholder="Sandpoint" autoComplete="off" style={inp} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={lbl}>State</label>
+              <div style={{ ...inp, background: T.bg, color: T.muted, display: "flex", alignItems: "center" }}>Idaho</div>
+            </div>
           </div>
         </div>
 
