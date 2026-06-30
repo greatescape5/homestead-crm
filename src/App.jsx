@@ -29,6 +29,8 @@ const STATUS_CFG = {
 
 const fmt$ = (n) => n ? "$" + Number(n).toLocaleString() : "—";
 const todayStr = () => new Date().toISOString().split("T")[0];
+// Capitalizes the first letter of each word — for names, businesses, addresses
+const titleCase = (s) => (s || "").replace(/(^|\s)([a-z])/g, (m, sp, ch) => sp + ch.toUpperCase());
 const fmtTime = (ts) => {
   const d = new Date(ts);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -467,25 +469,49 @@ function JobCard({ job, onClick }) {
 function JobList({ jobs, onSelect }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
+  const [sort, setSort] = useState("contact_asc"); // field_direction
+
   const filtered = jobs.filter(j => {
     const s = search.toLowerCase();
     return (!s || j.company.toLowerCase().includes(s) || (j.contact || "").toLowerCase().includes(s) || (j.job_site || "").toLowerCase().includes(s)) && (filter === "All" || j.status === filter);
   });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const [field, dir] = sort.split("_");
+    const av = (field === "company" ? a.company : a.contact || a.company || "").toLowerCase();
+    const bv = (field === "company" ? b.company : b.contact || b.company || "").toLowerCase();
+    const cmp = av.localeCompare(bv);
+    return dir === "asc" ? cmp : -cmp;
+  });
+
+  const sortOptions = [
+    { v: "contact_asc",  label: "Contact A–Z" },
+    { v: "contact_desc", label: "Contact Z–A" },
+    { v: "company_asc",  label: "Business A–Z" },
+    { v: "company_desc", label: "Business Z–A" },
+  ];
+
   return (
     <div style={{ paddingBottom: 90 }}>
       <Header title={CONFIG.jobsLabel} sub={jobs.length + " total"} />
       <div style={{ padding: "14px 16px 0" }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs, contacts, sites…"
-          style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.card, boxSizing: "border-box", marginBottom: 12, outline: "none" }} />
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search jobs, contacts…"
+            style={{ flex: 3, minWidth: 0, padding: "11px 14px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 14, background: T.card, boxSizing: "border-box", outline: "none" }} />
+          <select value={sort} onChange={e => setSort(e.target.value)}
+            style={{ flex: 1, minWidth: 0, padding: "11px 6px", borderRadius: 10, border: "1px solid " + T.cardBorder, fontSize: 12, fontWeight: 700, background: T.card, color: T.steel, boxSizing: "border-box", outline: "none", cursor: "pointer" }}>
+            {sortOptions.map(o => <option key={o.v} value={o.v}>{o.label}</option>)}
+          </select>
+        </div>
         <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 12 }}>
           {["All", ...CONFIG.statuses].map(s => (
             <button key={s} onClick={() => setFilter(s)} style={{ whiteSpace: "nowrap", padding: "5px 13px", borderRadius: 20, border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, background: filter === s ? T.steel : T.card, color: filter === s ? T.gold : T.muted }}>{s}</button>
           ))}
         </div>
-        <div style={{ fontSize: 11, color: T.mutedLight, marginBottom: 10, fontWeight: 600 }}>{filtered.length} {filtered.length === 1 ? "job" : "jobs"}</div>
-        {filtered.length === 0
+        <div style={{ fontSize: 11, color: T.mutedLight, marginBottom: 10, fontWeight: 600 }}>{sorted.length} {sorted.length === 1 ? "job" : "jobs"}</div>
+        {sorted.length === 0
           ? <div style={{ textAlign: "center", padding: 50, color: T.mutedLight }}><div style={{ display: "flex", justifyContent: "center" }}><Icon name="jobs" size={36} stroke={1.5} /></div><div style={{ marginTop: 8 }}>No jobs found</div></div>
-          : filtered.map(j => <JobCard key={j.id} job={j} onClick={onSelect} />)}
+          : sorted.map(j => <JobCard key={j.id} job={j} onClick={onSelect} />)}
       </div>
     </div>
   );
@@ -690,20 +716,24 @@ function InvoiceBuilder({ job, onClose, standalone, allJobs, userId }) {
     doc.text("TOTAL:", 155, y, { align: "right" });
     doc.text("$" + total.toLocaleString(), 187, y, { align: "right" });
 
-    // Embedded Pay Online button
+    // Embedded Pay Online button — entire gold box is the link
     if (payUrl) {
       y += 18;
+      const boxX = 20, boxW = 90, boxH = 14;
       doc.setFillColor(200, 169, 110); // gold
-      doc.roundedRect(20, y - 7, 80, 13, 2, 2, "F");
+      doc.roundedRect(boxX, y - 7, boxW, boxH, 2, 2, "F");
       doc.setTextColor(26, 26, 26);
       doc.setFont(undefined, "bold");
       doc.setFontSize(12);
-      doc.textWithLink("Pay Online  →", 27, y + 1.5, { url: payUrl });
+      // vertically centered text inside the box, baseline nudged for optical center
+      doc.text("Pay Online  →", boxX + boxW / 2, y + 1, { align: "center", baseline: "middle" });
+      // make the whole box clickable, not just the text
+      doc.link(boxX, y - 7, boxW, boxH, { url: payUrl });
       doc.setFont(undefined, "normal");
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      doc.text("Or pay at: " + payUrl, 20, y + 14, { maxWidth: 170 });
-      y += 20;
+      doc.text("Or pay at: " + payUrl, boxX, y + 15, { maxWidth: 170 });
+      y += 22;
     }
 
     if (notes) {
@@ -1030,16 +1060,18 @@ const fldStyle = { marginBottom: 14 };
 function AddJob({ onSave, onCancel, userId }) {
   const [form, setForm] = useState({ ...EMPTY });
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  // Auto-capitalize the first letter of each word for names/businesses/addresses
+  const setCap = (k) => (e) => setForm(f => ({ ...f, [k]: titleCase(e.target.value) }));
 
   return (
     <div style={{ paddingBottom: 90, minHeight: "100vh" }}>
       <Header title={"New " + CONFIG.jobLabel} sub="Fill in what you know — edit anytime." />
       <div style={{ padding: "16px 16px 0", maxWidth: 420, margin: "0 auto" }}>
         <div style={{ background: T.card, borderRadius: 14, padding: 16, border: "1px solid " + T.cardBorder, marginBottom: 14 }}>
-          <div style={fldStyle}><label style={lblStyle}>Company Name *</label><input style={inpStyle} value={form.company} onChange={set("company")} placeholder="Ridgeline Builders" /></div>
-          <div style={fldStyle}><label style={lblStyle}>Contact Name</label><input style={inpStyle} value={form.contact} onChange={set("contact")} placeholder="Mike Hendricks" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Company Name *</label><input style={inpStyle} value={form.company} onChange={setCap("company")} placeholder="Ridgeline Builders" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Contact Name</label><input style={inpStyle} value={form.contact} onChange={setCap("contact")} placeholder="Mike Hendricks" /></div>
           <div style={fldStyle}><label style={lblStyle}>Phone — iOS suggests from contacts</label><input style={inpStyle} type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} placeholder="208-555-0100" /></div>
-          <div style={fldStyle}><label style={lblStyle}>Job Site Address</label><input style={inpStyle} value={form.job_site} onChange={set("job_site")} autoComplete="off" placeholder="1234 Timber Ridge Rd" /></div>
+          <div style={fldStyle}><label style={lblStyle}>Job Site Address</label><input style={inpStyle} value={form.job_site} onChange={setCap("job_site")} autoComplete="off" placeholder="1234 Timber Ridge Rd" /></div>
           <div style={fldStyle}><label style={lblStyle}>Job Type</label>
             <select style={selStyle} value={form.type} onChange={set("type")}>
               {["", ...CONFIG.jobTypes].map(o => <option key={o} value={o}>{o || "—"}</option>)}
