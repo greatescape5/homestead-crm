@@ -1043,7 +1043,7 @@ export default function App() {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); setJobs([]); setSelected(null); setTab("dashboard"); };
 
-  const root = { maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: T.bg, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", position: "relative" };
+  const root = { maxWidth: 480, margin: "0 auto", minHeight: "100dvh", background: T.bg, fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", position: "relative" };
 
   if (loading) return <div style={{ ...root, display: "flex", alignItems: "center", justifyContent: "center", background: T.steel }}><div style={{ color: T.gold, fontSize: 16, fontWeight: 700 }}>Loading…</div></div>;
   if (!session) return <Login />;
