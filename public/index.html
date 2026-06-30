@@ -16,13 +16,27 @@
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
 
+      function showBannerIfNeeded() {
+        try {
+          var perm = (typeof Notification !== 'undefined') ? Notification.permission : 'default';
+          var banner = document.getElementById('notif-banner');
+          if (banner && perm !== 'granted' && perm !== 'denied') {
+            banner.style.display = 'flex';
+          } else if (banner) {
+            banner.style.display = 'none';
+          }
+        } catch(e) {}
+      }
+
       // Must be global so onclick can reach it
       window.enablePush = function() {
         window.OneSignalDeferred.push(async function(OneSignal) {
           try {
             await OneSignal.Notifications.requestPermission();
             document.getElementById('notif-banner').style.display = 'none';
-          } catch(e) { console.log('push error', e); }
+          } catch(e) {
+            alert('Could not enable notifications: ' + (e && e.message ? e.message : e));
+          }
         });
       };
 
@@ -34,12 +48,12 @@
           serviceWorkerParam: { scope: "/" },
           serviceWorkerPath: "OneSignalSDKWorker.js",
         });
-        // Only show the banner if OneSignal initialized AND permission not yet granted
-        const permission = OneSignal.Notifications.permission;
-        const banner = document.getElementById('notif-banner');
-        if (banner && !permission) {
-          banner.style.display = 'flex';
-        }
+        showBannerIfNeeded();
+      });
+
+      // Fallback: check permission state directly after load, in case init callback is slow on iOS
+      window.addEventListener('load', function() {
+        setTimeout(showBannerIfNeeded, 2500);
       });
     </script>
 
