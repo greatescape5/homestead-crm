@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     });
 
     // Record for the contractor's paper trail
-    await supabase.from('invoices').insert([{
+    const { data: inserted } = await supabase.from('invoices').insert([{
       user_id: userId,
       job_id: jobId || null,
       stripe_invoice_id: session.id,
@@ -87,9 +87,9 @@ export default async function handler(req, res) {
       amount_cents: totalCents,
       status: 'pending',
       hosted_url: session.url,
-    }]);
+    }]).select('id').single();
 
-    return res.status(200).json({ ok: true, paymentUrl: session.url, amountCents: totalCents });
+    return res.status(200).json({ ok: true, paymentUrl: session.url, amountCents: totalCents, recordId: inserted?.id });
   } catch (err) {
     console.error('Create payment link error:', err);
     return res.status(500).json({ error: err.message });
